@@ -107,51 +107,54 @@ export function LadderBoard({
   }, [ladder]);
 
   return (
-    <div className={styles.ladderWrap} style={{ "--columns": ladder.columns } as React.CSSProperties}>
-      <div className={styles.ladderLabels}>
-        {entries.map((entry, i) => (
-          <span key={entry.nickname} className={styles.ladderName} style={{ left: at(i) }}
-            data-won={didWin(i) ? "true" : undefined}>
-            {entry.nickname}
-          </span>
-        ))}
-      </div>
-      <svg className={styles.ladder} viewBox={`0 0 ${ladder.columns} ${ladder.rows + 2}`}
-        preserveAspectRatio="none" role="img" aria-label={`참여자 ${ladder.columns}명의 사다리`}>
-        {/* 세로줄 */}
-        {Array.from({ length: ladder.columns }, (_, i) => (
-          <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
-            className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-        ))}
-        {/* 가로줄 */}
-        {ladder.rungs.map((rung) => (
-          <line key={`r${rung.row}-${rung.left}`}
-            x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
-            className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
-        ))}
-        {/*
-          * 길 — 당첨된 사람만 금색으로 남긴다.
-          *
-          * 위에서부터 잘라 보이며 내려온다. 점선 길이로 그리면 화면에 몇 픽셀로
-          * 펴졌는지에 따라 속도가 달라지는데, 잘라 보이는 방식은 칸으로 재므로
-          * 조가 몇 개든 같은 속도로 내려온다.
-          */}
-        <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
-          <rect x={0} y={0} width={ladder.columns} height={progress * (ladder.rows + 2)} />
-        </clipPath>
-        <g clipPath={`url(#${clipId})`} className={styles.pathGroup}
-          data-revealed={revealed ? "true" : undefined}>
-          {paths.map((points, start) => (
-            <polyline key={`p${start}`} points={points} vectorEffect="non-scaling-stroke"
-              className={`${styles.ladderPath} ${didWin(start) ? styles.ladderPathWin : ""}`} />
+    <div className={styles.ladderWrap}>
+      {/* 사람이 적으면 열 간격이 터무니없이 벌어져 한 사다리로 안 보인다. 너비를 묶는다. */}
+      <div className={styles.ladderInner} style={{ "--columns": ladder.columns } as React.CSSProperties}>
+        <div className={styles.ladderLabels}>
+          {entries.map((entry, i) => (
+            <span key={entry.nickname} className={styles.ladderName} style={{ left: at(i) }}
+              data-won={didWin(i) ? "true" : undefined}>
+              {entry.nickname}
+            </span>
           ))}
-        </g>
-      </svg>
-      {/* 당첨이 걸린 자리. 길이 다 내려온 뒤에 드러난다. */}
-      <div className={styles.slotRow}>
-        {revealed && winningSlots.map((slot) => (
-          <span key={`w${slot}`} className={styles.slotDot} style={{ left: at(slot) }} />
-        ))}
+        </div>
+        <svg className={styles.ladder} viewBox={`0 0 ${ladder.columns} ${ladder.rows + 2}`}
+          preserveAspectRatio="none" role="img" aria-label={`참여자 ${ladder.columns}명의 사다리`}>
+          {/* 세로줄 */}
+          {Array.from({ length: ladder.columns }, (_, i) => (
+            <line key={`v${i}`} x1={x(i)} y1={0.5} x2={x(i)} y2={bottom}
+              className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+          ))}
+          {/* 가로줄 */}
+          {ladder.rungs.map((rung) => (
+            <line key={`r${rung.row}-${rung.left}`}
+              x1={x(rung.left)} y1={y(rung.row + 1)} x2={x(rung.left + 1)} y2={y(rung.row + 1)}
+              className={styles.ladderLine} vectorEffect="non-scaling-stroke" />
+          ))}
+          {/*
+            * 길 — 당첨된 사람만 금색으로 남긴다.
+            *
+            * 위에서부터 잘라 보이며 내려온다. 점선 길이로 그리면 화면에 몇 픽셀로
+            * 펴졌는지에 따라 속도가 달라지는데, 잘라 보이는 방식은 칸으로 재므로
+            * 조가 몇 개든 같은 속도로 내려온다.
+            */}
+          <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
+            <rect x={0} y={0} width={ladder.columns} height={progress * (ladder.rows + 2)} />
+          </clipPath>
+          <g clipPath={`url(#${clipId})`} className={styles.pathGroup}
+            data-revealed={revealed ? "true" : undefined}>
+            {paths.map((points, start) => (
+              <polyline key={`p${start}`} points={points} vectorEffect="non-scaling-stroke"
+                className={`${styles.ladderPath} ${didWin(start) ? styles.ladderPathWin : ""}`} />
+            ))}
+          </g>
+        </svg>
+        {/* 당첨이 걸린 자리. 길이 다 내려온 뒤에 드러난다. */}
+        <div className={styles.slotRow}>
+          {revealed && winningSlots.map((slot) => (
+            <span key={`w${slot}`} className={styles.slotDot} style={{ left: at(slot) }} />
+          ))}
+        </div>
       </div>
     </div>
   );

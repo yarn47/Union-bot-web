@@ -51,15 +51,17 @@
 /* ── 사다리 ──
    칸 하나(--slot)는 화면에서 열 하나가 차지하는 너비다. 글자와 점 크기를 여기에
    맞춰 두면 조가 몇 개든, 한 조에 몇 명이든 같은 비율로 따라온다. */
-.ladderWrap { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; container-type: inline-size; --slot: calc(100cqw / var(--columns)); }
+.ladderWrap { display: flex; flex: 1; min-height: 0; }
+.ladderInner { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; margin-inline: auto;
+  max-width: calc(var(--columns) * 150px); container-type: inline-size; --slot: calc(100cqw / var(--columns)); }
 /* height:0 으로 그림 본래의 세로 비율을 끊는다. 그러지 않으면 사다리가
    제 비율만큼 자리를 차지해 화면 밖으로 밀려난다. */
 .ladder { flex: 1 1 0; height: 0; min-height: 120px; width: 100%; display: block; }
 .ladderLine { stroke: var(--color-rule); stroke-width: 1.5; }
-.ladderPath { fill: none; stroke: var(--color-ink-faint); stroke-width: 1.5; opacity: .45; }
-.ladderPathWin { stroke: var(--color-accent); stroke-width: 3; opacity: 1; }
+.ladderPath { fill: none; stroke: var(--color-ink-dim); stroke-width: 2.5; opacity: .85; }
+.ladderPathWin { stroke: var(--color-accent-deep); stroke-width: 4; opacity: 1; }
 /* 결과가 나오면 떨어진 길은 물러나고 당첨된 길만 남는다. */
-.pathGroup[data-revealed="true"] .ladderPath { opacity: .12; }
+.pathGroup[data-revealed="true"] .ladderPath { opacity: .16; }
 .pathGroup[data-revealed="true"] .ladderPathWin { opacity: 1; }
 .ladderLabels { position: relative; height: clamp(24px, calc(var(--slot) * .58), 62px); flex: none; }
 .ladderName { position: absolute; bottom: 2px; left: 0; width: var(--slot); transform: translateX(-50%); text-align: center; line-height: 1.15; font-size: clamp(9px, calc(var(--slot) * .22), 22px); color: var(--color-ink-dim); overflow-wrap: anywhere; }
