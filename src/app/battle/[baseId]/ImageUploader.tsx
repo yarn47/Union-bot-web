@@ -40,12 +40,19 @@ export function ImageUploader({
     form.set("file", file);
     onError("");
     startTransition(async () => {
-      const result = await upload(form, open);
-      if (result.ok) {
-        setFile(null);
-        if (input.current) input.current.value = "";
-      } else {
-        onError(result.message);
+      /* 사진이 서버 액션 본문 한도를 넘으면 우리 코드가 돌기도 전에 요청이
+         끊긴다. 그때는 반환값이 아니라 예외로 오므로 여기서 받아 준다 —
+         받지 않으면 화면에 아무 말도 뜨지 않고 조용히 실패한다. */
+      try {
+        const result = await upload(form, open);
+        if (result.ok) {
+          setFile(null);
+          if (input.current) input.current.value = "";
+        } else {
+          onError(result.message);
+        }
+      } catch {
+        onError("사진을 보내지 못했습니다. 파일이 너무 크거나 연결이 끊겼습니다.");
       }
     });
   }
