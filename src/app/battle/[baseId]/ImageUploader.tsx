@@ -74,14 +74,28 @@ export function ImageUploader({
           disabled={!file || isPending}
           onClick={send}
         >
-          {hasImage ? "바꾸기" : "올리기"}
+          {isPending ? "올리는 중…" : hasImage ? "바꾸기" : "올리기"}
         </button>
       </div>
+
+      {/*
+        사진이 몇 MB 라 줄이고 보관함에 넣기까지 몇 초가 걸린다. 그동안 아무
+        표시가 없으면 눌린 건지 알 수 없어, 같은 사진을 또 올리게 된다.
+
+        서버 액션은 올라간 양을 알려 주지 않으므로 몇 %인지는 보여 줄 수 없다.
+        도는 막대로 "하는 중"만 알린다.
+      */}
+      {isPending && (
+        <div className={styles.progress} role="status" aria-label="사진 올리는 중">
+          <span className={styles.progressBar} />
+        </div>
+      )}
       <div className={styles.imageRow}>
         <label className={styles.check}>
           <input
             type="checkbox"
             checked={open}
+            disabled={isPending}
             onChange={(event) => {
               const next = event.target.checked;
               setOpen(next);
