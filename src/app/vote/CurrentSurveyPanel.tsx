@@ -4,7 +4,13 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { VoteButtons } from "./VoteButtons";
 import { maybeAnnounce } from "./announceAction";
 import { useServerClock } from "@/lib/serverClock";
-import { CountdownSound, DEFAULT_VOLUME, toneForSecond } from "./countdownSound";
+import {
+  CountdownSound,
+  DEFAULT_VOLUME,
+  PREVIEW_SECONDS,
+  previewSequence,
+  toneForSecond,
+} from "./countdownSound";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import type { ClassType, VotingType } from "@/lib/types";
 import styles from "./vote.module.css";
@@ -128,7 +134,9 @@ export function CurrentSurveyPanel({
       return DEFAULT_VOLUME;
     }
   });
+  const [previewing, setPreviewing] = useState(false);
   const soundRef = useRef<CountdownSound | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastToneSecond = useRef<number | null>(null);
   const openedTone = useRef(false);
 
@@ -147,7 +155,12 @@ export function CurrentSurveyPanel({
   );
 
   // 화면을 떠날 때 소리 장치를 닫는다.
-  useEffect(() => () => soundRef.current?.close(), []);
+  useEffect(() => {
+    return () => {
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+      soundRef.current?.close();
+    };
+  }, []);
 
   async function toggleSound() {
     if (soundOn) {
@@ -164,6 +177,18 @@ export function CurrentSurveyPanel({
     // 켰다는 것을 귀로 확인시켜 준다. 정작 그때 가서 안 들리면 늦다.
     if (ok) soundRef.current.play("beep");
     try { localStorage.setItem(SOUND_KEY, ok ? "on" : "off"); } catch {}
+  }
+
+  /*
+   * 미리 듣기. 15 초마다 나는 삑, 마지막 초읽기, 열리는 소리를 차례로 한 번씩
+   * 들려준다. 투표가 열리는 순간에 처음 듣게 되면 그게 무슨 소리인지 알아채는
+   * 데만 몇 초가 간다.
+   */
+  function playPreview() {
+    if (!soundRef.current || previewing) return;
+    setPreviewing(true);
+    previewSequence(soundRef.current);
+    previewTimer.current = setTimeout(() => setPreviewing(false), PREVIEW_SECONDS * 1000);
   }
 
   /* 막대를 움직이면 그 자리에서 한 번 울려 크기를 귀로 확인시킨다. 소리 크기는
@@ -286,6 +311,17 @@ export function CurrentSurveyPanel({
           {soundOn ? "🔔 알림 소리 끄기" : "🔕 알림 소리 켜기"}
         </button>
         {soundOn && (
+          <button
+            type="button"
+            className={styles.soundButton}
+            disabled={previewing}
+            onClick={playPreview}
+          >
+            {previewing ? "▶ 재생 중…" : "▶ 미리 듣기"}
+          </button>
+        )}
+
+        {soundOn && (
           <label className={styles.volume}>
             <span className={styles.volumeLabel}>크기</span>
             <input
@@ -303,7 +339,7 @@ export function CurrentSurveyPanel({
 
         <span className={styles.soundNote}>
           {soundOn
-            ? "열리기 1분 전부터 15초마다, 마지막 5초는 초읽기로 울립니다."
+            ? "열리기 1분 전부터 15초마다, 마지막 5초는 초읽기로 울립니다. 미리 들어 보세요."
             : soundRemembered
               ? "소리를 켜 두셨지만 이 화면에서 한 번 더 눌러야 울립니다."
               : "브라우저가 막아 두어 눌러야 소리가 납니다."}

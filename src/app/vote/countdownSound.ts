@@ -59,14 +59,15 @@ export class CountdownSound {
     this.context = null;
   }
 
-  play(kind: Kind): void {
+  /** delay 는 초. 미리 듣기처럼 여러 소리를 이어 붙일 때 쓴다. */
+  play(kind: Kind, delay = 0): void {
     const context = this.context;
     if (!context || context.state !== "running") return;
     const tone = TONES[kind];
     // 0 까지 내리면 아예 내지 않는다. 지수로 줄이는 포락선은 0 을 다루지 못한다.
     const peak = tone.gain * this.volume;
     if (peak < 0.001) return;
-    const now = context.currentTime;
+    const now = context.currentTime + delay;
 
     const osc = context.createOscillator();
     // 사각파는 같은 크기에서도 또렷하게 들린다. 알림음이라 음색보다 분별이다.
@@ -84,6 +85,22 @@ export class CountdownSound {
     osc.start(now);
     osc.stop(now + tone.seconds + 0.02);
   }
+}
+
+/*
+ * 미리 듣기. 실제로 어떻게 울리는지 그때 가서 처음 듣지 않게 한다.
+ *
+ * 15 초마다 나는 삑, 마지막 초읽기, 열리는 소리를 순서대로 한 번씩 들려준다.
+ * 시간은 브라우저의 소리 시계로 재서 화면이 버벅여도 간격이 흔들리지 않는다.
+ */
+export const PREVIEW_SECONDS = 2.4;
+
+export function previewSequence(sound: CountdownSound): void {
+  sound.play("beep", 0);
+  sound.play("tick", 0.9);
+  sound.play("tick", 1.2);
+  sound.play("tick", 1.5);
+  sound.play("open", 2.0);
 }
 
 /** 이 초에 소리를 낼지. 15 초마다, 그리고 마지막 5 초는 초읽기. */

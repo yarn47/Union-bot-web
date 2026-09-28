@@ -242,7 +242,12 @@
   cursor: pointer;
 }
 
-.soundButton:hover,
+.soundButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.soundButton:hover:not(:disabled),
 .soundButtonOn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-deep);
