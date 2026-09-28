@@ -339,7 +339,7 @@ export function CurrentSurveyPanel({
 
         <span className={styles.soundNote}>
           {soundOn
-            ? "열리기 1분 전부터 15초마다, 마지막 5초는 초읽기로 울립니다. 미리 들어 보세요."
+            ? "열리기 1분 전부터 15초마다, 마지막 10초는 째깍 초읽기로 울립니다. 미리 들어 보세요."
             : soundRemembered
               ? "소리를 켜 두셨지만 이 화면에서 한 번 더 눌러야 울립니다."
               : "브라우저가 막아 두어 눌러야 소리가 납니다."}
