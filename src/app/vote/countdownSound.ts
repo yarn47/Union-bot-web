@@ -4,10 +4,12 @@
  * 소리 파일을 두지 않고 브라우저가 직접 만든다. 파일을 받아 오다 늦으면 정작
  * 필요한 순간에 못 울린다.
  *
- * 초읽기는 벽시계 태엽 소리를 따라간다. 태엽 소리는 한 겹이 아니다 — 톱니가
- * 풀리며 나는 파열음, 그 위에 짧게 남는 금속 울림, 아래에 깔리는 몸통 울림이
- * 겹쳐 있다. 게다가 톱니가 걸렸다 놓이며 아주 짧은 간격으로 두 번 친다. 한
- * 겹으로 만들면 북을 얇게 친 소리가 되고, 겹쳐야 시계처럼 들린다.
+ * 초읽기는 일반 벽시계 초침 소리를 따라간다. 한 겹이 아니다 — 기어가 걸리는
+ * 파열음, 그 위에 짧게 남는 울림, 아래에 깔리는 몸통이 겹쳐 있다. 한 겹으로
+ * 만들면 북을 얇게 친 소리가 된다.
+ *
+ * 1 초에 한 번만 친다. "똑딱" 은 두 번 때리는 것이 아니라 초마다 높낮이가
+ * 번갈아 나는 것이다.
  *
  * 열리는 순간은 옛날 쌍종 자명종이다. 망치가 두 종을 빠르게 번갈아 때리는
  * 소리라, 종 울림에 빠른 떨림을 걸어 만든다.
@@ -19,34 +21,36 @@
 type Kind = "tick" | "tock" | "open";
 
 interface Voice {
-  /** 톱니가 풀리는 파열음. 아주 짧고 넓다. */
-  snap: { seconds: number; gain: number };
+  /** 기어가 걸리는 파열음. 아주 짧고 넓다. hz 아래는 잘라 낸다. */
+  snap: { hz: number; seconds: number; gain: number };
   /** 그 위에 남는 금속 울림. q 가 클수록 쇳소리에 가깝다. */
   ring: { hz: number; q: number; seconds: number; gain: number };
   /** 아래에 깔리는 몸통. 이것이 없으면 소리가 얇아진다. */
   body: { hz: number; seconds: number; gain: number };
-  /** 두 번째 타격까지의 간격(초). 톱니가 걸렸다 놓이며 겹쳐 친다. */
-  echo: number;
 }
 
 /*
- * 째는 높고 짧게, 깍은 낮고 길게. 번갈아 내야 주고받는 것처럼 들린다.
+ * 일반 벽시계 초침 소리. 똑이 높고 딱이 낮아, 초마다 번갈아 나면 "똑딱똑딱"
+ * 이 된다.
  *
- * 세 겹이 한꺼번에 더해지므로 겹마다의 값은 작게 잡는다. 크기 막대를 끝까지
- * 올렸을 때 합이 1 을 넘으면 소리가 찌그러진다 — 재어 보니 0.8 언저리다.
+ * 기계식 태엽 시계와 달리 벽시계는 1 초에 한 번만 친다. 한 번 칠 때 두 번
+ * 때리게 하면 소리가 뭉개진다.
+ *
+ * 쇳소리가 거의 없다. 플라스틱 기어가 걸리는 소리라 낮고 건조하다 — 울림을
+ * 1000~1500Hz 로 낮추고 띠도 넓혀 두었다. 몸통이 이 소리의 중심이다.
+ *
+ * 세 겹이 한꺼번에 더해지므로 겹마다의 값은 작게 잡는다.
  */
 const VOICES: Record<"tick" | "tock", Voice> = {
   tick: {
-    snap: { seconds: 0.006, gain: 0.62 },
-    ring: { hz: 4200, q: 12, seconds: 0.035, gain: 0.42 },
-    body: { hz: 300, seconds: 0.045, gain: 0.28 },
-    echo: 0.01,
+    snap: { hz: 900, seconds: 0.004, gain: 0.5 },
+    ring: { hz: 1500, q: 5, seconds: 0.022, gain: 0.34 },
+    body: { hz: 720, seconds: 0.03, gain: 0.5 },
   },
   tock: {
-    snap: { seconds: 0.007, gain: 1.05 },
-    ring: { hz: 3000, q: 11, seconds: 0.048, gain: 0.7 },
-    body: { hz: 210, seconds: 0.065, gain: 0.5 },
-    echo: 0.012,
+    snap: { hz: 800, seconds: 0.005, gain: 0.48 },
+    ring: { hz: 1050, q: 5, seconds: 0.028, gain: 0.34 },
+    body: { hz: 520, seconds: 0.04, gain: 0.55 },
   },
 };
 
@@ -162,10 +166,8 @@ export class CountdownSound {
       this.playAlarm(context, at);
       return;
     }
-    const voice = VOICES[kind];
-    this.strike(context, voice, at, 1);
-    // 두 번째 타격은 작게. 이것이 있어야 "딱" 이 아니라 "째깍" 으로 들린다.
-    this.strike(context, voice, at + voice.echo, 0.45);
+    // 벽시계는 1 초에 한 번만 친다. 똑과 딱은 초마다 번갈아 나는 것이다.
+    this.strike(context, VOICES[kind], at, 1);
   }
 
   private strike(context: AudioContext, voice: Voice, at: number, scale: number): void {
@@ -177,7 +179,7 @@ export class CountdownSound {
     snap.buffer = this.noiseBuffer(context);
     const snapFilter = context.createBiquadFilter();
     snapFilter.type = "highpass";
-    snapFilter.frequency.value = 1800;
+    snapFilter.frequency.value = voice.snap.hz;
     const snapGain = this.envelope(context, at, voice.snap.gain * level, voice.snap.seconds);
     snap.connect(snapFilter).connect(snapGain).connect(this.output(context));
     snap.start(at);
@@ -197,7 +199,7 @@ export class CountdownSound {
 
     // 3) 몸통 — 낮은 음 한 번. 이것이 소리에 무게를 준다.
     const body = context.createOscillator();
-    body.type = "triangle";
+    body.type = "sine";
     body.frequency.setValueAtTime(voice.body.hz, at);
     // 때린 뒤 살짝 내려앉는다. 두드린 물체의 소리는 늘 그렇다.
     body.frequency.exponentialRampToValueAtTime(voice.body.hz * 0.82, at + voice.body.seconds);
@@ -272,7 +274,7 @@ export class CountdownSound {
 /*
  * 미리 듣기. 실제로 어떻게 울리는지 그때 가서 처음 듣지 않게 한다.
  *
- * 째깍 초읽기 네 번과 자명종을 들려준다. 시간은 브라우저의 소리 시계로 재서
+ * 똑딱 초읽기 네 번과 자명종을 들려준다. 시간은 브라우저의 소리 시계로 재서
  * 화면이 버벅여도 간격이 흔들리지 않는다.
  */
 export const PREVIEW_SECONDS = 3.4;
@@ -288,7 +290,7 @@ export function previewSequence(sound: CountdownSound): void {
 /**
  * 이 초에 낼 소리. 15 초마다 한 번, 마지막 10 초는 매초.
  *
- * 째와 깍은 초의 홀짝으로 번갈아 난다. 같은 소리를 열 번 반복하면 시계가
+ * 똑과 딱은 초의 홀짝으로 번갈아 난다. 같은 소리를 열 번 반복하면 시계가
  * 아니라 경보음으로 들린다. 15 초마다 나는 것도 같은 소리다 — 구분할 이유가
  * 없다.
  */
