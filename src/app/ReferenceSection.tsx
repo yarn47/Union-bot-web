@@ -252,18 +252,28 @@ export function ReferenceSection() {
         >
           {HUNT_ZONES.filter((zone) => zone.key === huntZone).map((zone) => (
             <figure key={zone.key} className={styles.mapFigure}>
-              <Image
-                src={`/hunting/${zone.key}.webp`}
-                alt={`${zone.label} 사냥터 지도`}
-                width={zone.width}
-                height={zone.height}
-                className={styles.mapImage}
-                sizes="(max-width: 960px) 100vw, 900px"
-              />
+              {/* 게임 화면이라 글씨가 작다. 폰에서는 줄어들어 읽히지 않으므로
+                  눌러서 원본 크기로 열 수 있게 한다. */}
+              <a
+                href={`/hunting/${zone.key}.webp`}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.mapLink}
+              >
+                <Image
+                  src={`/hunting/${zone.key}.webp`}
+                  alt={`${zone.label} 사냥터 지도`}
+                  width={zone.width}
+                  height={zone.height}
+                  className={styles.mapImage}
+                  sizes="(max-width: 960px) 100vw, 900px"
+                />
+              </a>
             </figure>
           ))}
           <p className={styles.tableNote}>
-            의뢰 창에 적힌 권장 공격력·방어력은 원활하게 진행할 수 있는 기준입니다.
+            그림을 누르면 원본 크기로 열립니다. 의뢰 창에 적힌 권장 공격력·방어력은 원활하게
+            진행할 수 있는 기준입니다.
           </p>
         </ReferenceModal>
       )}

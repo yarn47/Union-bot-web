@@ -35,6 +35,12 @@
   justify-content: center;
 }
 
+.mapLink {
+  display: block;
+  max-width: 100%;
+  cursor: zoom-in;
+}
+
 .mapImage {
   width: auto;
   max-width: 100%;
@@ -284,6 +290,20 @@
 }
 
 /* ── Mobile ─────────────────────────────────────────────────── */
+
+/* 탭이 다섯이라 좁은 화면에서는 제목 옆에 둘 자리가 없다. 나란히 두면
+   제목이 글자 두세 개씩 끊겨 내려간다. 위아래로 나눈다. */
+@media (max-width: 768px) {
+  .panelHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 11px;
+  }
+
+  .panelHeaderActions {
+    justify-content: flex-start;
+  }
+}
 
 @media (max-width: 1020px) {
   .cardGrid {
