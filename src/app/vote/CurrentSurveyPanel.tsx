@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { VoteButtons } from "./VoteButtons";
 import { maybeAnnounce } from "./announceAction";
 import { useServerClock } from "@/lib/serverClock";
-import { CountdownSound, toneForSecond } from "./countdownSound";
+import { CountdownSound, DEFAULT_VOLUME, toneForSecond } from "./countdownSound";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import type { ClassType, VotingType } from "@/lib/types";
 import styles from "./vote.module.css";
@@ -25,6 +25,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const URGENT_MS = 60_000;
 /** 소리를 켜 두었는지 기억하는 자리. 회차마다 다시 묻지 않는다. */
 const SOUND_KEY = "voteCountdownSound";
+/** 소리 크기를 기억하는 자리(%). */
+const VOLUME_KEY = "voteCountdownVolume";
 
 /* 남은 시간에 따라 화면이 달라진다. 숫자만 줄어드는 것보다 색이 바뀌는 편이
    곁눈으로도 읽힌다. */
@@ -115,6 +117,17 @@ export function CurrentSurveyPanel({
    * 브라우저가 페이지마다 새로 받는다.
    */
   const [soundOn, setSoundOn] = useState(false);
+  const [volume, setVolume] = useState(() => {
+    /* 처음 그릴 때 읽는다. 서버에는 저장소가 없으므로 기본값으로 그려지고,
+       브라우저가 이어받을 때 저장해 둔 값으로 다시 그려진다. */
+    if (typeof window === "undefined") return DEFAULT_VOLUME;
+    try {
+      const saved = Number(localStorage.getItem(VOLUME_KEY));
+      return Number.isFinite(saved) && saved >= 0 && saved <= 100 ? saved : DEFAULT_VOLUME;
+    } catch {
+      return DEFAULT_VOLUME;
+    }
+  });
   const soundRef = useRef<CountdownSound | null>(null);
   const lastToneSecond = useRef<number | null>(null);
   const openedTone = useRef(false);
@@ -145,11 +158,22 @@ export function CurrentSurveyPanel({
       return;
     }
     soundRef.current ??= new CountdownSound();
+    soundRef.current.setVolume(volume);
     const ok = await soundRef.current.enable();
     setSoundOn(ok);
     // 켰다는 것을 귀로 확인시켜 준다. 정작 그때 가서 안 들리면 늦다.
     if (ok) soundRef.current.play("beep");
     try { localStorage.setItem(SOUND_KEY, ok ? "on" : "off"); } catch {}
+  }
+
+  /* 막대를 움직이면 그 자리에서 한 번 울려 크기를 귀로 확인시킨다. 소리 크기는
+     눈으로 고를 수 있는 것이 아니다. */
+  function changeVolume(next: number) {
+    setVolume(next);
+    try { localStorage.setItem(VOLUME_KEY, String(next)); } catch {}
+    if (!soundRef.current) return;
+    soundRef.current.setVolume(next);
+    if (soundOn) soundRef.current.play("beep");
   }
 
   /* 남은 초가 바뀌는 순간에만 울린다. 화면은 0.2 초마다 도므로 같은 초에 네 번
@@ -261,6 +285,22 @@ export function CurrentSurveyPanel({
         >
           {soundOn ? "🔔 알림 소리 끄기" : "🔕 알림 소리 켜기"}
         </button>
+        {soundOn && (
+          <label className={styles.volume}>
+            <span className={styles.volumeLabel}>크기</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={10}
+              value={volume}
+              aria-label="알림 소리 크기"
+              onChange={(event) => changeVolume(Number(event.target.value))}
+            />
+            <span className={styles.volumeValue}>{volume}%</span>
+          </label>
+        )}
+
         <span className={styles.soundNote}>
           {soundOn
             ? "열리기 1분 전부터 15초마다, 마지막 5초는 초읽기로 울립니다."

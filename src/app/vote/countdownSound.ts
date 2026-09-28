@@ -11,18 +11,32 @@
 
 type Kind = "tick" | "beep" | "open";
 
-/** 소리마다 주파수(Hz)·길이(초)·세기. 길이가 짧아야 "틱" 으로 들린다. */
+/**
+ * 소리마다 주파수(Hz)·길이(초)·세기. 길이가 짧아야 "틱" 으로 들린다.
+ *
+ * 여기 적힌 세기는 크기 막대를 끝까지 올렸을 때의 값이다. 1.0 이 최대이므로
+ * 셋 다 한참 아래에 둔다 — 알림음이 기기를 울릴 만큼 클 이유가 없다.
+ */
 const TONES: Record<Kind, { hz: number; seconds: number; gain: number }> = {
   // 마지막 5 초 초읽기. 초침 소리에 가깝게 짧고 건조하게.
-  tick: { hz: 1180, seconds: 0.035, gain: 0.22 },
+  tick: { hz: 1180, seconds: 0.035, gain: 0.32 },
   // 15 초마다 알리는 소리. 틱보다 조금 낮고 길어 구분된다.
-  beep: { hz: 880, seconds: 0.11, gain: 0.25 },
+  beep: { hz: 880, seconds: 0.11, gain: 0.36 },
   // 열리는 순간. 위로 한 번 튀어 "됐다" 로 들리게 한다.
-  open: { hz: 1568, seconds: 0.22, gain: 0.3 },
+  open: { hz: 1568, seconds: 0.22, gain: 0.42 },
 };
+
+/** 막대를 처음 놓는 자리(%). 이 값에서 예전 고정 크기와 같게 들린다. */
+export const DEFAULT_VOLUME = 70;
 
 export class CountdownSound {
   private context: AudioContext | null = null;
+  /** 0~1. 화면의 크기 막대가 정한다. */
+  private volume = DEFAULT_VOLUME / 100;
+
+  setVolume(percent: number): void {
+    this.volume = Math.min(1, Math.max(0, percent / 100));
+  }
 
   /** 사람이 스위치를 누른 그 자리에서 부른다. 여기 아니면 소리가 막힌다. */
   async enable(): Promise<boolean> {
@@ -49,6 +63,9 @@ export class CountdownSound {
     const context = this.context;
     if (!context || context.state !== "running") return;
     const tone = TONES[kind];
+    // 0 까지 내리면 아예 내지 않는다. 지수로 줄이는 포락선은 0 을 다루지 못한다.
+    const peak = tone.gain * this.volume;
+    if (peak < 0.001) return;
     const now = context.currentTime;
 
     const osc = context.createOscillator();
@@ -60,7 +77,7 @@ export class CountdownSound {
        내려 끝을 부드럽게 만든다. */
     const gain = context.createGain();
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(tone.gain, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(peak, now + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.seconds);
 
     osc.connect(gain).connect(context.destination);
