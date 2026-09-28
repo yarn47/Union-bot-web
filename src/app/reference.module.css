@@ -35,17 +35,24 @@
   justify-content: center;
 }
 
+/*
+ * 칸이 허락하는 만큼 키우되 원본보다 크게는 늘리지 않는다 — 게임 화면을
+ * 늘려 봐야 글씨가 뭉개질 뿐 읽히지는 않는다. 원본 폭은 사냥터마다 달라
+ * 화면에서 칸마다 지정한다.
+ *
+ * 세로는 자르지 않는다. 마가이아처럼 세로로 긴 지도는 팝업 안에서 스크롤해
+ * 보면 되고, 더 크게 보려면 눌러서 원본을 연다.
+ */
 .mapLink {
   display: block;
-  max-width: 100%;
+  width: 100%;
   cursor: zoom-in;
 }
 
 .mapImage {
-  width: auto;
-  max-width: 100%;
+  display: block;
+  width: 100%;
   height: auto;
-  max-height: 68vh;
   border: 1px solid var(--color-hairline);
   border-radius: 4px;
 }

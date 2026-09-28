@@ -233,7 +233,7 @@ export function ReferenceSection() {
         <ReferenceModal
           kicker="REFERENCE 03"
           title="에다니아 내부 사냥터 정보"
-          width={960}
+          width={1000}
           onClose={() => setOpen(null)}
           headerExtra={
             <>
@@ -259,6 +259,7 @@ export function ReferenceSection() {
                 target="_blank"
                 rel="noreferrer"
                 className={styles.mapLink}
+                style={{ maxWidth: `${zone.width}px` }}
               >
                 <Image
                   src={`/hunting/${zone.key}.webp`}
