@@ -175,7 +175,7 @@ export function CurrentSurveyPanel({
     const ok = await soundRef.current.enable();
     setSoundOn(ok);
     // 켰다는 것을 귀로 확인시켜 준다. 정작 그때 가서 안 들리면 늦다.
-    if (ok) soundRef.current.play("beep");
+    if (ok) soundRef.current.play("mark");
     try { localStorage.setItem(SOUND_KEY, ok ? "on" : "off"); } catch {}
   }
 
@@ -198,7 +198,7 @@ export function CurrentSurveyPanel({
     try { localStorage.setItem(VOLUME_KEY, String(next)); } catch {}
     if (!soundRef.current) return;
     soundRef.current.setVolume(next);
-    if (soundOn) soundRef.current.play("beep");
+    if (soundOn) soundRef.current.play("mark");
   }
 
   /* 남은 초가 바뀌는 순간에만 울린다. 화면은 0.2 초마다 도므로 같은 초에 네 번
@@ -339,7 +339,7 @@ export function CurrentSurveyPanel({
 
         <span className={styles.soundNote}>
           {soundOn
-            ? "열리기 1분 전부터 15초마다, 마지막 10초는 째깍 초읽기로 울립니다. 미리 들어 보세요."
+            ? "열리기 1분 전부터 15초마다 톡, 마지막 10초는 째깍 초읽기로 울립니다. 미리 들어 보세요."
             : soundRemembered
               ? "소리를 켜 두셨지만 이 화면에서 한 번 더 눌러야 울립니다."
               : "브라우저가 막아 두어 눌러야 소리가 납니다."}

@@ -13,29 +13,28 @@
  * 스위치를 누르는 그 순간에 이 장치를 만든다 — 그 누름이 허락이 된다.
  */
 
-type Kind = "tick" | "tock" | "beep" | "open";
-
-/** 맑은 음으로 내는 소리. 주파수(Hz)·길이(초)·세기. */
-const TONES: Record<"beep" | "open", { hz: number; seconds: number; gain: number }> = {
-  // 15 초마다 알리는 소리. 초읽기와 확실히 구분되도록 음으로 낸다.
-  beep: { hz: 880, seconds: 0.11, gain: 0.36 },
-  // 열리는 순간. 위로 한 번 튀어 "됐다" 로 들리게 한다.
-  open: { hz: 1568, seconds: 0.22, gain: 0.42 },
-};
+type Kind = "tick" | "tock" | "mark" | "open";
 
 /*
- * 시계 소리. 좁은 띠로 거른 잡음을 때린다.
+ * 전부 벽시계 계열이다. 맑은 음(삑·띠링)은 쓰지 않는다 — 전자음이 섞이면
+ * 시계가 아니라 알람 앱이 된다.
  *
- * hz 는 그 띠의 가운데다 — 높을수록 날카롭고 낮을수록 둔하다. q 가 클수록 띠가
- * 좁아 금속처럼 울리고, 작으면 "탁" 하는 둔한 소리가 된다. 깍이 째보다 낮고
- * 조금 길어야 두 소리가 주고받는 것처럼 들린다.
+ * 좁은 띠로 거른 잡음을 순간에 때린다. hz 는 그 띠의 가운데로, 낮을수록
+ * 둔탁하다. q 는 띠의 좁기로, 작을수록 넓게 통과해 나무를 두드린 소리에
+ * 가깝고 클수록 금속처럼 울린다. 깍이 째보다 낮고 길어야 주고받는 것처럼
+ * 들린다.
  *
  * gain 이 1 을 넘는 것은 띠로 거르며 힘이 빠지기 때문이다. 걸러 낸 뒤 실제로
- * 나가는 크기는 삑과 비슷한 0.2 언저리다.
+ * 나가는 크기는 그보다 한참 작다.
  */
-const CLICKS: Record<"tick" | "tock", { hz: number; q: number; seconds: number; gain: number }> = {
-  tick: { hz: 2400, q: 2.4, seconds: 0.03, gain: 1.2 },
-  tock: { hz: 1550, q: 2.2, seconds: 0.042, gain: 1.2 },
+const CLICKS: Record<Kind, { hz: number; q: number; seconds: number; gain: number }> = {
+  // 초읽기. 째는 조금 높고 짧게, 깍은 낮고 길게.
+  tick: { hz: 1250, q: 1.1, seconds: 0.05, gain: 1.9 },
+  tock: { hz: 820, q: 1.0, seconds: 0.07, gain: 2.0 },
+  // 15 초마다. 괘종시계가 한 번 치는 것처럼 더 깊고 길다.
+  mark: { hz: 560, q: 0.9, seconds: 0.14, gain: 2.3 },
+  // 열리는 순간. 같은 소리를 빠르게 세 번 두드린다 — 아래 play 에서 엮는다.
+  open: { hz: 560, q: 0.9, seconds: 0.13, gain: 2.5 },
 };
 
 /** 막대를 처음 놓는 자리(%). 이 값에서 예전 고정 크기와 같게 들린다. */
@@ -94,31 +93,12 @@ export class CountdownSound {
     if (!context || context.state !== "running") return;
     const at = context.currentTime + delay;
 
-    if (kind === "tick" || kind === "tock") {
-      this.playClick(context, CLICKS[kind], at);
+    if (kind === "open") {
+      // 빠르게 세 번. 한 번만 치면 15 초 표시와 헷갈린다.
+      for (const step of [0, 0.085, 0.17]) this.playClick(context, CLICKS.open, at + step);
       return;
     }
-
-    const tone = TONES[kind];
-    // 0 까지 내리면 아예 내지 않는다. 지수로 줄이는 포락선은 0 을 다루지 못한다.
-    const peak = tone.gain * this.volume;
-    if (peak < 0.001) return;
-
-    const osc = context.createOscillator();
-    // 사각파는 같은 크기에서도 또렷하게 들린다. 알림음이라 음색보다 분별이다.
-    osc.type = kind === "open" ? "triangle" : "square";
-    osc.frequency.value = tone.hz;
-
-    /* 소리를 그냥 끊으면 "딱" 하고 잡음이 남는다. 아주 짧게 올렸다가 지수로
-       내려 끝을 부드럽게 만든다. */
-    const gain = context.createGain();
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(peak, at + 0.004);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + tone.seconds);
-
-    osc.connect(gain).connect(context.destination);
-    osc.start(at);
-    osc.stop(at + tone.seconds + 0.02);
+    this.playClick(context, CLICKS[kind], at);
   }
 
   private playClick(
@@ -154,13 +134,13 @@ export class CountdownSound {
 /*
  * 미리 듣기. 실제로 어떻게 울리는지 그때 가서 처음 듣지 않게 한다.
  *
- * 15 초마다 나는 삑, 째깍 초읽기, 열리는 소리를 순서대로 들려준다. 시간은
+ * 15 초마다 나는 톡, 째깍 초읽기, 열리는 소리를 순서대로 들려준다. 시간은
  * 브라우저의 소리 시계로 재서 화면이 버벅여도 간격이 흔들리지 않는다.
  */
 export const PREVIEW_SECONDS = 3;
 
 export function previewSequence(sound: CountdownSound): void {
-  sound.play("beep", 0);
+  sound.play("mark", 0);
   sound.play("tick", 0.9);
   sound.play("tock", 1.4);
   sound.play("tick", 1.9);
@@ -168,7 +148,7 @@ export function previewSequence(sound: CountdownSound): void {
 }
 
 /**
- * 이 초에 낼 소리. 15 초마다 삑, 마지막 10 초는 째깍 초읽기.
+ * 이 초에 낼 소리. 15 초마다 톡, 마지막 10 초는 째깍 초읽기.
  *
  * 째와 깍은 초의 홀짝으로 번갈아 난다. 같은 소리를 열 번 반복하면 시계가
  * 아니라 경보음으로 들린다.
@@ -176,6 +156,6 @@ export function previewSequence(sound: CountdownSound): void {
 export function toneForSecond(secondsLeft: number): Kind | null {
   if (secondsLeft <= 0 || secondsLeft > 60) return null;
   if (secondsLeft <= COUNTDOWN_FROM) return secondsLeft % 2 === 0 ? "tick" : "tock";
-  if (secondsLeft % 15 === 0) return "beep";
+  if (secondsLeft % 15 === 0) return "mark";
   return null;
 }
