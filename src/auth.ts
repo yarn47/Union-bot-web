@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { getUserByDiscordId } from "@/lib/queries";
 import { rememberDiscordAvatar } from "@/lib/memberQueries";
-import { fetchIsGuildAdmin } from "@/lib/discordRoles";
+import { fetchGuildMembership } from "@/lib/discordRoles";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -22,12 +22,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
   callbacks: {
-    async signIn({ profile }) {
+    async signIn({ profile, account }) {
       if (!profile?.id) return false;
       // Only members already registered via the bot's #회원등록 command
       // (user.status = 1) may sign in — same gate as get_user_data().
       const dbUser = await getUserByDiscordId(profile.id as string);
       if (!dbUser) return "/login?error=unregistered";
+
+      /*
+       * 봇의 !탈퇴 를 거친 사람은 위에서 걸린다. 디스코드를 그냥 나가 버린
+       * 사람은 DB 에 손이 닿지 않아 계속 회원으로 남으므로, 아직 서버에 있는지
+       * 디스코드에 직접 물어본다.
+       *
+       * 조회가 안 될 때(null)는 막지 않는다. 디스코드가 잠깐 느리다고 멀쩡한
+       * 회원이 투표 시간에 못 들어오는 편이 더 나쁘다.
+       */
+      if (account?.access_token) {
+        const { inGuild } = await fetchGuildMembership(account.access_token);
+        if (inGuild === false) return "/login?error=left";
+      }
       return true;
     },
     async jwt({ token, profile, account }) {
@@ -43,7 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // account 는 최초 로그인 때만 온다. 역할은 그때 한 번 확인해 토큰에 담고,
       // 이후 요청에서는 DB 조회 없이 그 값을 쓴다.
       if (account?.access_token) {
-        token.isAdmin = await fetchIsGuildAdmin(account.access_token);
+        token.isAdmin = (await fetchGuildMembership(account.access_token)).isAdmin;
       }
 
       /*
@@ -59,13 +72,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const discordId = (profile?.id as string | undefined) ?? (token.discordId as string | undefined);
       if (discordId) {
         const dbUser = await getUserByDiscordId(discordId);
-        if (dbUser) {
-          token.dbUserId = dbUser.id;
-          token.discordId = dbUser.user_discord_id;
-          token.nickname = dbUser.user_nickname;
-          token.guildId = dbUser.guild_id;
-          token.permission = dbUser.permission;
-        }
+        /*
+         * 탈퇴 처리된 사람의 세션을 여기서 끊는다. 예전에는 찾지 못하면 토큰의
+         * 옛 값을 그대로 두어서, !탈퇴 를 해도 이미 열려 있던 세션은 한 달 가까이
+         * 그대로 살아 있었다. 세션은 요청마다 연장되므로 스스로 끝나지도 않는다.
+         */
+        if (!dbUser) return null;
+        token.dbUserId = dbUser.id;
+        token.discordId = dbUser.user_discord_id;
+        token.nickname = dbUser.user_nickname;
+        token.guildId = dbUser.guild_id;
+        token.permission = dbUser.permission;
       }
       return token;
     },

@@ -8,6 +8,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "등록되지 않은 계정이거나 비활성화 상태입니다. 운영진에게 문의해주세요.",
   AccessDenied:
     "등록되지 않은 계정이거나 비활성화 상태입니다. 운영진에게 문의해주세요.",
+  left: "디스코드 서버에 없는 계정입니다. 다시 들어온 뒤 운영진에게 등록을 요청해주세요.",
 };
 
 // Only accept an internal relative path as the post-login destination —
