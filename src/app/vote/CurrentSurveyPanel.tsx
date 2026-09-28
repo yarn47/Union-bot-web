@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { VoteButtons } from "./VoteButtons";
 import { maybeAnnounce } from "./announceAction";
 import { useServerClock } from "@/lib/serverClock";
+import { CountdownSound, toneForSecond } from "./countdownSound";
 import { formatSurveyDate, formatSurveyTime } from "@/lib/format";
 import type { ClassType, VotingType } from "@/lib/types";
 import styles from "./vote.module.css";
@@ -19,6 +20,20 @@ function splitDuration(ms: number) {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+/** 소리와 화면이 급해지기 시작하는 시점. 열리기 1 분 전부터다. */
+const URGENT_MS = 60_000;
+/** 소리를 켜 두었는지 기억하는 자리. 회차마다 다시 묻지 않는다. */
+const SOUND_KEY = "voteCountdownSound";
+
+/* 남은 시간에 따라 화면이 달라진다. 숫자만 줄어드는 것보다 색이 바뀌는 편이
+   곁눈으로도 읽힌다. */
+function urgencyOf(remaining: number): "none" | "near" | "close" | "final" {
+  if (remaining > URGENT_MS) return "none";
+  if (remaining > 30_000) return "near";
+  if (remaining > 10_000) return "close";
+  return "final";
+}
 
 /**
  * 카운트다운과 투표 화면을 한 컴포넌트에서 처리한다.
@@ -90,6 +105,71 @@ export function CurrentSurveyPanel({
   const remaining = Math.max(0, opensAt - serverNow);
   const isOpen = serverNow >= opensAt && clockReady;
   const isClosed = serverNow >= closesAt;
+
+  /*
+   * 열리기 1 분 전부터 나는 소리.
+   *
+   * 브라우저는 사람이 한 번 누르기 전에는 소리를 내주지 않는다. 그래서 켜는
+   * 것은 반드시 스위치를 눌러야 하고, 한 번 켜 두면 다음 회차에도 기억한다.
+   * 다만 기억하고 있어도 화면을 새로 열면 다시 한 번 눌러 줘야 한다 — 그 허락은
+   * 브라우저가 페이지마다 새로 받는다.
+   */
+  const [soundOn, setSoundOn] = useState(false);
+  const soundRef = useRef<CountdownSound | null>(null);
+  const lastToneSecond = useRef<number | null>(null);
+  const openedTone = useRef(false);
+
+  /* 저장소는 서버에서 읽을 수 없다. 서버는 늘 "안 켜 둠"으로 그리고, 브라우저에
+     붙은 뒤 실제 값을 읽는다 — 효과 안에서 상태를 바꾸면 화면이 두 번 그려진다. */
+  const soundRemembered = useSyncExternalStore(
+    () => () => {},
+    () => {
+      try {
+        return localStorage.getItem(SOUND_KEY) === "on";
+      } catch {
+        return false;
+      }
+    },
+    () => false,
+  );
+
+  // 화면을 떠날 때 소리 장치를 닫는다.
+  useEffect(() => () => soundRef.current?.close(), []);
+
+  async function toggleSound() {
+    if (soundOn) {
+      soundRef.current?.close();
+      soundRef.current = null;
+      setSoundOn(false);
+      try { localStorage.setItem(SOUND_KEY, "off"); } catch {}
+      return;
+    }
+    soundRef.current ??= new CountdownSound();
+    const ok = await soundRef.current.enable();
+    setSoundOn(ok);
+    // 켰다는 것을 귀로 확인시켜 준다. 정작 그때 가서 안 들리면 늦다.
+    if (ok) soundRef.current.play("beep");
+    try { localStorage.setItem(SOUND_KEY, ok ? "on" : "off"); } catch {}
+  }
+
+  /* 남은 초가 바뀌는 순간에만 울린다. 화면은 0.2 초마다 도므로 같은 초에 네 번
+     울리지 않게 마지막으로 울린 초를 적어 둔다. */
+  useEffect(() => {
+    if (!soundOn || !soundRef.current) return;
+    if (remaining <= 0 || remaining > URGENT_MS) return;
+    const secondsLeft = Math.ceil(remaining / 1000);
+    if (lastToneSecond.current === secondsLeft) return;
+    lastToneSecond.current = secondsLeft;
+    const tone = toneForSecond(secondsLeft);
+    if (tone) soundRef.current.play(tone);
+  }, [soundOn, remaining]);
+
+  // 열리는 순간은 한 번만 울린다.
+  useEffect(() => {
+    if (!soundOn || !isOpen || openedTone.current) return;
+    openedTone.current = true;
+    soundRef.current?.play("open");
+  }, [soundOn, isOpen]);
 
   // 시계를 못 맞춘 채로 열릴 시각이 지나면, 세 번 더 재 보고 그래도 안 되면 그냥 연다.
   useEffect(() => {
@@ -165,10 +245,28 @@ export function CurrentSurveyPanel({
         투표는 {formatSurveyTime(new Date(opensAt))}에 열립니다. 모두 같은 시각에 열리며, 이 화면이
         그대로 투표 화면으로 바뀝니다.
       </p>
-      <div className={styles.countdown}>
+      <div className={styles.countdown} data-urgency={urgencyOf(remaining)}>
         {days > 0 && <span className={styles.countdownSegment}>{days}일</span>}
-        <span className={styles.countdownSegment}>
+        <span className={styles.countdownSegment} key={seconds}>
           {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+        </span>
+      </div>
+
+      <div className={styles.soundRow}>
+        <button
+          type="button"
+          className={soundOn ? styles.soundButtonOn : styles.soundButton}
+          aria-pressed={soundOn}
+          onClick={toggleSound}
+        >
+          {soundOn ? "🔔 알림 소리 끄기" : "🔕 알림 소리 켜기"}
+        </button>
+        <span className={styles.soundNote}>
+          {soundOn
+            ? "열리기 1분 전부터 15초마다, 마지막 5초는 초읽기로 울립니다."
+            : soundRemembered
+              ? "소리를 켜 두셨지만 이 화면에서 한 번 더 눌러야 울립니다."
+              : "브라우저가 막아 두어 눌러야 소리가 납니다."}
         </span>
       </div>
     </>

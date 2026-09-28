@@ -177,6 +177,87 @@
 .countdownSegment {
   font-size: 1.75rem;
   font-weight: 700;
+  transition: color 0.3s ease, font-size 0.3s ease;
+}
+
+/*
+ * 남은 시간이 줄수록 숫자가 커지고 색이 옮겨 간다. 화면 전체를 번쩍이게 하지는
+ * 않는다 — 눈에 위험하고, 정작 눌러야 할 버튼을 못 찾게 된다.
+ */
+.countdown[data-urgency="near"] .countdownSegment {
+  font-size: 2.6rem;
+  color: var(--color-warning);
+}
+
+.countdown[data-urgency="close"] .countdownSegment {
+  font-size: 3.2rem;
+  color: var(--color-danger);
+}
+
+.countdown[data-urgency="final"] .countdownSegment {
+  font-size: 3.6rem;
+  color: var(--color-danger);
+}
+
+/* 초가 바뀔 때마다 한 번 커졌다 돌아온다. key 가 바뀌며 요소가 새로 붙어
+   애니메이션이 매초 다시 시작된다. */
+.countdown[data-urgency="close"] .countdownSegment,
+.countdown[data-urgency="final"] .countdownSegment {
+  animation: votePulse 0.9s ease-out;
+}
+
+@keyframes votePulse {
+  0% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .countdown .countdownSegment {
+    animation: none;
+    transition: color 0.3s ease;
+  }
+}
+
+/* 소리 스위치 */
+
+.soundRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.soundButton,
+.soundButtonOn {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.soundButton:hover,
+.soundButtonOn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-deep);
+}
+
+.soundButtonOn {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent-deeper);
+}
+
+.soundNote {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--color-ink-faint);
 }
 
 .countdownSoon {
