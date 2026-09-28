@@ -22,9 +22,26 @@
 
 .cardGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 카드가 셋이라 세 칸으로 나눈다. 좁아지면 아래 규칙이 한 줄로 내린다. */
+  grid-template-columns: repeat(3, 1fr);
   gap: 18.4px;
   margin-top: 18.4px;
+}
+
+/* 사냥터 지도. 그림마다 세로가 달라 칸을 고정하지 않고 폭만 맞춘다. */
+.mapFigure {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.mapImage {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 68vh;
+  border: 1px solid var(--color-hairline);
+  border-radius: 4px;
 }
 
 .card {
@@ -267,6 +284,12 @@
 }
 
 /* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 1020px) {
+  .cardGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 @media (max-width: 768px) {
   .cardGrid {

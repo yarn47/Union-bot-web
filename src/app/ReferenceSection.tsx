@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { ReferenceModal } from "./ReferenceModal";
 import {
@@ -11,8 +12,23 @@ import {
 } from "@/lib/referenceTables";
 import styles from "./reference.module.css";
 
-type OpenModal = "gb" | "ec" | null;
+type OpenModal = "gb" | "ec" | "hunt" | null;
 type EcTab = "acc" | "rate";
+
+/*
+ * 에다니아 내부 사냥터. 그림은 public/hunting 에 있는 고정 자료다 — 운영진이
+ * 화면에서 올리는 것이 아니라 게시할 때 파일로 넣는다. 크기를 적어 두는 것은
+ * 탭을 옮길 때 칸이 덜컥이지 않게 하려는 것이다.
+ */
+const HUNT_ZONES = [
+  { key: "aphrodon", label: "아프로돈", width: 692, height: 584 },
+  { key: "emesia", label: "에메시아", width: 620, height: 635 },
+  { key: "magaia", label: "마가이아", width: 919, height: 922 },
+  { key: "arethion", label: "아레시온", width: 612, height: 583 },
+  { key: "voidekea", label: "보이데케아", width: 726, height: 522 },
+] as const;
+
+type HuntZone = (typeof HUNT_ZONES)[number]["key"];
 
 const CARDS = [
   {
@@ -28,11 +44,19 @@ const CARDS = [
     title: "에크레타 악세사리 강화 정보",
     description: "반지·귀걸이·목걸이·허리띠의 단계별 수치와 강화 확률·기준 스택·필요 크론석.",
   },
+  {
+    key: "hunt" as const,
+    kicker: "REFERENCE 03",
+    title: "에다니아 내부 사냥터 정보",
+    description:
+      "아프로돈·에메시아·마가이아·아레시온·보이데케아의 의뢰 위치와 권장 공격력·방어력.",
+  },
 ];
 
 export function ReferenceSection() {
   const [open, setOpen] = useState<OpenModal>(null);
   const [ecTab, setEcTab] = useState<EcTab>("acc");
+  const [huntZone, setHuntZone] = useState<HuntZone>("aphrodon");
 
   // 107 rows total; build once rather than on every render.
   const attackRows = useMemo(() => buildAttackRows(), []);
@@ -202,6 +226,45 @@ export function ReferenceSection() {
               <p className={styles.tableNote}>적용 확률은 기준 스택을 채웠을 때의 값입니다.</p>
             </>
           )}
+        </ReferenceModal>
+      )}
+
+      {open === "hunt" && (
+        <ReferenceModal
+          kicker="REFERENCE 03"
+          title="에다니아 내부 사냥터 정보"
+          width={960}
+          onClose={() => setOpen(null)}
+          headerExtra={
+            <>
+              {HUNT_ZONES.map((zone) => (
+                <button
+                  key={zone.key}
+                  type="button"
+                  className={`${styles.tab} ${huntZone === zone.key ? styles.tabActive : ""}`}
+                  onClick={() => setHuntZone(zone.key)}
+                >
+                  {zone.label}
+                </button>
+              ))}
+            </>
+          }
+        >
+          {HUNT_ZONES.filter((zone) => zone.key === huntZone).map((zone) => (
+            <figure key={zone.key} className={styles.mapFigure}>
+              <Image
+                src={`/hunting/${zone.key}.webp`}
+                alt={`${zone.label} 사냥터 지도`}
+                width={zone.width}
+                height={zone.height}
+                className={styles.mapImage}
+                sizes="(max-width: 960px) 100vw, 900px"
+              />
+            </figure>
+          ))}
+          <p className={styles.tableNote}>
+            의뢰 창에 적힌 권장 공격력·방어력은 원활하게 진행할 수 있는 기준입니다.
+          </p>
         </ReferenceModal>
       )}
     </>
