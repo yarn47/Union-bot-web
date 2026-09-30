@@ -9,6 +9,7 @@ import { OperationTab } from "./OperationTab";
 import { ComparisonTab } from "./ComparisonTab";
 import { FailureLogTab } from "./FailureLogTab";
 import { ReferenceLogTab } from "./ReferenceLogTab";
+import { AttendanceTab } from "./AttendanceTab";
 import { SpecTab } from "./SpecTab";
 import { DrawTab } from "./DrawTab";
 import { TabGuide } from "./TabGuide";
@@ -24,6 +25,7 @@ const TABS: TabKey[] = [
   "추첨",
   "거절 기록",
   "참고 자료",
+  "참여 점검",
 ];
 
 export type Phase = "waiting" | "live" | "closed";
@@ -147,6 +149,7 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
       {tab === "추첨" && <DrawTab />}
       {tab === "거절 기록" && <FailureLogTab />}
       {tab === "참고 자료" && <ReferenceLogTab />}
+      {tab === "참여 점검" && <AttendanceTab />}
 
       <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`}>{toast}</div>
     </div>

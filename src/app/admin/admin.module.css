@@ -1475,3 +1475,43 @@ section.opStack + section {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── 참여 점검 ───────────────────────────────────────────────── */
+
+/* 회차별 인원을 막대로 세운다. 숫자만 늘어놓으면 줄고 있는지 눈에 안 들어온다. */
+.refBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 120px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--color-inset);
+}
+
+.refBarFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: var(--color-accent);
+  opacity: 0.45;
+}
+
+.refBarValue {
+  position: relative;
+  padding-left: 7px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.refDown {
+  color: var(--color-danger);
+}
+
+.refUp {
+  color: var(--color-accent-deep);
+}

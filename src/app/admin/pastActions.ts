@@ -41,3 +41,12 @@ export async function fetchReferenceLog() {
   const { getReferenceLog } = await import("@/lib/referenceLog");
   return getReferenceLog(100);
 }
+
+/* 참여 점검. 최근 며칠 동안 누가 안 나왔는지와 회차별 인원. */
+export async function fetchAttendanceReport(days: number) {
+  await requireAdmin();
+  // 화면에서 온 값이 그대로 조회 기간이 되지 않게 아는 값만 받는다.
+  const safe = [7, 14, 28].includes(days) ? days : 7;
+  const { getAttendanceReport } = await import("@/lib/attendanceQueries");
+  return getAttendanceReport(safe);
+}
