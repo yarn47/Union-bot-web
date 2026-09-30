@@ -1397,3 +1397,81 @@ section.opStack + section {
   .drawSetup { grid-template-columns: minmax(0, 1fr); }
   .drawRow { grid-template-columns: minmax(0, 1fr) 20px; row-gap: 4px; }
 }
+
+/* ── 참고 자료 열람 기록 ─────────────────────────────────────── */
+
+/* 표가 셋뿐이라 표 안에 넣지 않고 나란히 세운다. 한눈에 비교하라고 만든 칸이다. */
+.refCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.refCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 6px;
+  background: var(--color-card);
+}
+
+.refCardName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.refCardNumbers {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.refBig {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-accent-deeper);
+}
+
+.refUnit {
+  font-size: 11.5px;
+  color: var(--color-ink-dim);
+}
+
+.refCardLast {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-ink-faint);
+}
+
+/* 이름 칸. 얼굴과 닉네임을 한 줄로 묶는다. */
+.refWho {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.refNick {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* 아직 안 본 표는 숫자 대신 옅은 점으로 둔다. 0 이 늘어서면 읽기 어렵다. */
+.refNone {
+  color: var(--color-ink-faint);
+}
+
+.refToggle {
+  align-self: flex-start;
+}
+
+@media (max-width: 720px) {
+  .refCards {
+    grid-template-columns: 1fr;
+  }
+}

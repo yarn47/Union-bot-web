@@ -1,5 +1,6 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { pool } from "@/lib/db";
+import { avatarUrl } from "@/lib/memberQueries";
 
 /*
  * 홈의 참고 자료 팝업을 누가 열었는지 남기는 기록.
@@ -44,6 +45,7 @@ export interface ReferenceCardCount {
 export interface ReferencePerson {
   userId: string | null;
   nickname: string;
+  avatarUrl: string | null;
   /** 표별 횟수. 아직 안 연 표는 0 이 아니라 아예 없다. */
   byCard: Record<string, number>;
   total: number;
@@ -54,6 +56,7 @@ export interface ReferenceOpenRow {
   id: string;
   cardKey: string;
   nickname: string | null;
+  avatarUrl: string | null;
   openedAt: Date;
 }
 
@@ -73,19 +76,27 @@ export async function getReferenceLog(recentLimit = 100): Promise<ReferenceLog> 
       "FROM reference_open_log GROUP BY card_key ORDER BY opens DESC",
   );
 
-  /* 사람별로 접을 때 표 이름을 한 칸에 모은다. 사람 수만큼 행이 나오므로
-     화면에서 다시 세지 않아도 된다. */
+  /*
+   * 사람별로 접는다. 먼저 사람·표로 세고 그 위에서 다시 합치는데, 바깥에서
+   * COUNT 를 쓰면 표 가짓수가 세어진다 — 연 횟수는 안쪽 값을 더해야 한다.
+   *
+   * 얼굴은 유저 표에서 지금 값을 읽는다. 연맹을 나가 사라진 사람은 얼굴 없이
+   * 찍어 둔 이름만 남는다.
+   */
   const [personRows] = await pool.query<RowDataPacket[]>(
-    "SELECT user_id, MAX(nickname) AS nickname, COUNT(*) AS total, MAX(opened_at) AS last_at, " +
-      "  GROUP_CONCAT(CONCAT(card_key, ':', cnt) SEPARATOR ',') AS cards " +
+    "SELECT t.user_id, MAX(t.nickname) AS nickname, SUM(t.cnt) AS total, MAX(t.opened_at) AS last_at, " +
+      "  GROUP_CONCAT(CONCAT(t.card_key, ':', t.cnt) SEPARATOR ',') AS cards, " +
+      "  u.user_discord_id, u.discord_avatar " +
       "FROM (SELECT user_id, nickname, card_key, COUNT(*) AS cnt, MAX(opened_at) AS opened_at " +
       "      FROM reference_open_log GROUP BY user_id, nickname, card_key) t " +
-      "GROUP BY user_id ORDER BY last_at DESC",
+      "LEFT JOIN user u ON u.id = t.user_id " +
+      "GROUP BY t.user_id, u.user_discord_id, u.discord_avatar ORDER BY last_at DESC",
   );
 
   const [recentRows] = await pool.query<RowDataPacket[]>(
-    "SELECT id, card_key, nickname, opened_at FROM reference_open_log " +
-      "ORDER BY opened_at DESC LIMIT ?",
+    "SELECT l.id, l.card_key, l.nickname, l.opened_at, u.user_discord_id, u.discord_avatar " +
+      "FROM reference_open_log l LEFT JOIN user u ON u.id = l.user_id " +
+      "ORDER BY l.opened_at DESC LIMIT ?",
     [recentLimit],
   );
 
@@ -105,6 +116,9 @@ export async function getReferenceLog(recentLimit = 100): Promise<ReferenceLog> 
       return {
         userId: row.user_id === null ? null : String(row.user_id),
         nickname: (row.nickname as string | null) ?? "이름 없음",
+        avatarUrl: row.user_discord_id
+          ? avatarUrl(row.user_discord_id as string, (row.discord_avatar as string | null) ?? null)
+          : null,
         byCard,
         total: Number(row.total),
         lastAt: row.last_at as Date,
@@ -114,6 +128,9 @@ export async function getReferenceLog(recentLimit = 100): Promise<ReferenceLog> 
       id: String(row.id),
       cardKey: row.card_key as string,
       nickname: (row.nickname as string | null) ?? null,
+      avatarUrl: row.user_discord_id
+        ? avatarUrl(row.user_discord_id as string, (row.discord_avatar as string | null) ?? null)
+        : null,
       openedAt: row.opened_at as Date,
     })),
   };
