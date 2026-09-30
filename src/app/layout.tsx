@@ -1,27 +1,43 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, JetBrains_Mono, Lora } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/components/theme";
 
-const cormorant = Cormorant_Garamond({
+/*
+ * 폰트 파일을 저장소에 두고 직접 읽는다.
+ *
+ * next/font/google 은 빌드할 때 구글에서 파일을 받아 온다. 서버가 그 순간
+ * 구글에 닿지 못하면 빌드가 통째로 실패한다 — 실제로 배포가 그렇게 멎었다.
+ * 파일을 넣어 두면 빌드는 인터넷을 타지 않고, 방문자도 구글을 거치지 않는다.
+ *
+ * 라틴 글자만 담은 판이다. 한글은 아래 <link> 로 받는 명조·고딕이 맡는다.
+ */
+const cormorant = localFont({
   variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["400", "600"],
   display: "swap",
+  src: [
+    { path: "./fonts/cormorant-garamond-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/cormorant-garamond-600.woff2", weight: "600", style: "normal" },
+  ],
 });
 
-const lora = Lora({
+const lora = localFont({
   variable: "--font-lora",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
   display: "swap",
+  src: [
+    { path: "./fonts/lora-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/lora-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/lora-600.woff2", weight: "600", style: "normal" },
+  ],
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
   variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
   display: "swap",
+  src: [
+    { path: "./fonts/jetbrains-mono-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/jetbrains-mono-500.woff2", weight: "500", style: "normal" },
+  ],
 });
 
 const SITE_URL = process.env.NEXTAUTH_URL ?? "https://vote.jan-azhidahaka.com";
