@@ -34,3 +34,10 @@ export async function fetchVoteFailures() {
   const { getVoteFailures } = await import("@/lib/voteLog");
   return getVoteFailures(100);
 }
+
+/* 홈의 참고 자료를 누가 열었는지. 기록은 열 때마다 한 줄씩 쌓인다. */
+export async function fetchReferenceLog() {
+  await requireAdmin();
+  const { getReferenceLog } = await import("@/lib/referenceLog");
+  return getReferenceLog(100);
+}

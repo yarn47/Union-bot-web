@@ -8,6 +8,7 @@ import styles from "./admin.module.css";
 import { OperationTab } from "./OperationTab";
 import { ComparisonTab } from "./ComparisonTab";
 import { FailureLogTab } from "./FailureLogTab";
+import { ReferenceLogTab } from "./ReferenceLogTab";
 import { SpecTab } from "./SpecTab";
 import { DrawTab } from "./DrawTab";
 import { TabGuide } from "./TabGuide";
@@ -15,7 +16,15 @@ import { PastVotesTab } from "./PastVotesTab";
 import { SettingsTab } from "./SettingsTab";
 import type { PresetControls, TabKey } from "./adminData";
 
-const TABS: TabKey[] = ["운영", "지난 투표", "명단 비교", "스펙조사", "추첨", "거절 기록"];
+const TABS: TabKey[] = [
+  "운영",
+  "지난 투표",
+  "명단 비교",
+  "스펙조사",
+  "추첨",
+  "거절 기록",
+  "참고 자료",
+];
 
 export type Phase = "waiting" | "live" | "closed";
 
@@ -137,6 +146,7 @@ export function AdminConsole({ current, queue }: AdminConsoleProps) {
       {tab === "스펙조사" && <SpecTab />}
       {tab === "추첨" && <DrawTab />}
       {tab === "거절 기록" && <FailureLogTab />}
+      {tab === "참고 자료" && <ReferenceLogTab />}
 
       <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`}>{toast}</div>
     </div>

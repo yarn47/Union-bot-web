@@ -7,7 +7,14 @@ import type { ClassType } from "@/lib/types";
 import { formatDayDate } from "@/lib/week";
 
 export type Vote = "참여" | "부속" | "늦참" | "미참";
-export type TabKey = "운영" | "지난 투표" | "명단 비교" | "스펙조사" | "추첨" | "거절 기록";
+export type TabKey =
+  | "운영"
+  | "지난 투표"
+  | "명단 비교"
+  | "스펙조사"
+  | "추첨"
+  | "거절 기록"
+  | "참고 자료";
 export type Dow = "월" | "화" | "수" | "목" | "금" | "토" | "일";
 
 export interface Member {

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { ReferenceModal } from "./ReferenceModal";
+import { logReferenceOpenAction } from "./referenceActions";
 import {
   ACCESSORY_TABLES,
   ENHANCE_RATE_ROWS,
@@ -74,7 +75,11 @@ export function ReferenceSection() {
             key={card.key}
             type="button"
             className={styles.card}
-            onClick={() => setOpen(card.key)}
+            onClick={() => {
+              setOpen(card.key);
+              // 기록은 기다리지 않는다. 표가 먼저 열려야 한다.
+              void logReferenceOpenAction(card.key);
+            }}
           >
             <span className={styles.cardKicker}>{card.kicker}</span>
             <span className={styles.cardTitle}>{card.title}</span>
