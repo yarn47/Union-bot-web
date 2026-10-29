@@ -44,10 +44,21 @@ function NameInput({ value, onCommit, onCancel }: {
 
 type Editing = { key: string; value: string; cell?: CellAddress; waitingId?: string; headerParty?: number };
 
-/** 몇 초마다 남이 고쳤는지 물어본다. 더 짧게 하면 얻는 것 없이 DB 만 두드린다. */
-const POLL_MS = 3000;
-/* 한 번 옮길 때마다 저장하면 끄는 동안에도 계속 날아간다. 손을 멈춘 뒤에 보낸다. */
-const SAVE_DELAY_MS = 900;
+/*
+ * 남이 고쳤는지 묻는 주기. 판 전체가 아니라 번호 한 줄만 물어보므로(기본키
+ * 조회 하나) 짧게 두어도 DB 가 힘들어하지 않는다. 받아 오는 양은 이 주기가
+ * 혼자 정한다 — 한 번 돌 때 판을 많아야 한 번 가져오니, 남이 자주 저장해도
+ * 읽기가 배로 늘지는 않는다.
+ */
+const POLL_MS = 1500;
+/*
+ * 손을 멈춘 뒤 저장하기까지. 옮길 때마다 다시 센다.
+ *
+ * 반쯤 된 판이 새어 나갈 걱정은 없다 — 고르는 것은 판을 건드리지 않고, 끄는
+ * 중과 이름을 고치는 중에는 저장이 막혀 있다. 그래서 이 값은 "쓰기를 몇 번
+ * 묶을까" 일 뿐이고, 짧게 두면 그만큼 빨리 남에게 닿는다.
+ */
+const SAVE_DELAY_MS = 300;
 /*
  * 사람마다 다른 색.
  *
