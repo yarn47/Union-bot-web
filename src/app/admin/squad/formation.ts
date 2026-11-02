@@ -217,7 +217,7 @@ function partySizes(count: number, format: FormatKey): number[] {
   return Array.from({ length: 4 }, (_, i) => Math.floor(count / 4) + (i < count % 4 ? 1 : 0));
 }
 
-// 첨부한 Google Apps Script의 고정 배치 → 직업 순환 배치 → 순차 배치 순서를 유지한다.
+// 직업별 인원과 위치를 정하고 나머지를 채운다.
 export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): Formation {
   const sizes = partySizes(members.length, format);
   const parties: (SquadMember | null)[][] = sizes.map(() => []);
@@ -238,16 +238,7 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     placeAt(member, party, index, suffix);
   }
 
-  /*
-   * 맨 아랫줄에 세우는 자리.
-   *
-   * 왼쪽은 위자치, 오른쪽은 샤이다. 여럿이면 밑에서 위로 쌓는다. 급할 때 눈이
-   * 가장 먼저 닿는 자리라 늘 같은 곳에 있어야 한다.
-   *
-   * 부대마다 정원이 달라도 표의 줄 수는 하나다. 그 마지막 줄을 모든 부대가
-   * 함께 쓰므로 가로로 줄이 맞는다 — 부대마다 제 정원의 바닥을 잡으면 정원이
-   * 적은 부대만 혼자 위로 떠서 한눈에 들어오지 않는다.
-   */
+  // 위자치의 부대 분배를 먼저 정한다. 최종 자리는 인원이 정해진 뒤 빈칸 없이 맞춘다.
   const rows = Math.max(1, Math.ceil(Math.max(...sizes) / 2));
   function pinBottom(jobs: string[], column: 0 | 1) {
     const pool = members.filter((m) => jobs.includes(m.job) && !assigned.has(m.id));
@@ -277,6 +268,7 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     const key = name.toLowerCase();
     const member = members.find((m) => baseName(m.name).toLowerCase() === key && !assigned.has(m.id));
     if (!member) return false;
+    if (member.job === "샤이" || member.job === "자이언트") return false;
     place(member, party, suffix);
     return true;
   }
@@ -297,31 +289,116 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   for (const name of ["bingegrab", "멜루", "연등"]) fixed(name, 2, "(화염탑)");
   for (const name of ["이지선다", "Sha", "염궁문"]) fixed(name, 2, "(수비)");
 
+  const wizardIds = new Set(members.filter((m) =>
+    ["위자드", "위치"].includes(m.job) && !assigned.has(m.id)).map((m) => m.id));
   pinBottom(["위자드", "위치"], 0);
-  pinBottom(["샤이"], 1);
 
-  for (const job of ["자이언트"]) {
-    let party = 0;
+  const hasRoom = (party: number) => filled(party) < sizes[party];
+  const shais = sizes.map(() => [] as SquadMember[]);
+  const giants = sizes.map(() => [] as SquadMember[]);
+  function placeClass(member: SquadMember, party: number, groups: SquadMember[][]) {
+    place(member, party);
+    groups[party].push(member);
+  }
+  function placeMain(member: SquadMember, groups: SquadMember[][]) {
+    const candidates = [0, 1].filter(hasRoom);
+    candidates.sort((a, b) => groups[a].length - groups[b].length || a - b);
+    if (candidates.length) placeClass(member, candidates[0], groups);
+  }
+
+  // 두 본대에 한 명씩 먼저 두고, 수비·기동에 한 명씩 둔 뒤 나머지는 본대에 나눈다.
+  const shaiPool = members.filter((m) => m.job === "샤이" && !assigned.has(m.id));
+  for (const party of [0, 1, 2, 3]) {
+    if (hasRoom(party) && shaiPool.length) placeClass(shaiPool.shift()!, party, shais);
+  }
+  // 자동배치를 실행할 때만 섞고, 부대 이력은 사용하지 않는다.
+  const giantPool = members.filter((m) => m.job === "자이언트" && !assigned.has(m.id));
+  for (let i = giantPool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [giantPool[i], giantPool[j]] = [giantPool[j], giantPool[i]];
+  }
+  // 두 본대에 한 명씩 먼저 확보한 뒤 수비에 한 명만 배치한다.
+  for (const party of [0, 1]) {
+    if (hasRoom(party) && giantPool.length) placeClass(giantPool.shift()!, party, giants);
+  }
+  if (giants[0].length && giants[1].length && giantPool.length && hasRoom(2)) {
+    placeClass(giantPool.shift()!, 2, giants);
+  }
+  for (const member of shaiPool) placeMain(member, shais);
+  for (const member of giantPool) placeMain(member, giants);
+
+  const classMembers = new Set([...shais.flat(), ...giants.flat()].map((m) => m.id));
+  // 직업별 자리를 먼저 확보한 뒤 빈칸을 일반 인원으로 채운다.
+  for (const list of parties) {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && classMembers.has(list[i]!.id)) list[i] = null;
+    }
+  }
+  const columnMembers = (party: number, column: number) => parties[party]
+    .filter((m, index): m is SquadMember => Boolean(m) && index % 2 === column);
+  const columns: { party: number; column: number; top: SquadMember[]; bottom: SquadMember[] }[] = [];
+  for (const party of [0, 1]) {
+    if (giants[party].length || shais[party].length) columns.push({
+      party, column: 1, top: [...giants[party], ...columnMembers(party, 1)], bottom: shais[party],
+    });
+  }
+  if (shais[2].length || giants[2].length) {
+    const left = columnMembers(2, 0).filter((m) => !wizardIds.has(m.id));
+    const wizards = columnMembers(2, 0).filter((m) => wizardIds.has(m.id));
+    columns.push({ party: 2, column: 0, top: left, bottom: [...wizards, ...shais[2], ...giants[2]] });
+  }
+  if (shais[3].length) columns.push({
+    party: 3, column: 1, top: [...shais[3], ...columnMembers(3, 1)], bottom: [],
+  });
+  const finalRows = Math.max(rows, ...parties.map((p) => Math.ceil(p.length / 2)),
+    ...columns.map((c) => c.top.length + c.bottom.length));
+  // 한쪽 열에 인원이 많아 표가 길어져도 위자치의 아래쪽 정렬을 유지한다.
+  if (classMembers.size && finalRows > rows) {
+    for (let party = 0; party < parties.length; party++) {
+      if (columns.some((c) => c.party === party && c.column === 0)) continue;
+      const left = columnMembers(party, 0);
+      if (left.some((m) => wizardIds.has(m.id))) columns.push({
+        party, column: 0, top: left.filter((m) => !wizardIds.has(m.id)),
+        bottom: left.filter((m) => wizardIds.has(m.id)),
+      });
+    }
+  }
+  for (const { party, column, top, bottom } of columns) {
+    const list = parties[party];
+    while (list.length < finalRows * 2) list.push(null);
+    for (let row = 0; row < finalRows; row++) list[row * 2 + column] = null;
+    top.forEach((member, row) => { list[row * 2 + column] = member; });
+    bottom.forEach((member, row) => { list[(finalRows - bottom.length + row) * 2 + column] = member; });
+  }
+
+  // 원거리 직업은 2부대, 1부대 순서로 남은 자리를 먼저 채운다.
+  const rangedJobs = ["아처", "레인저", "에이전트", "데드아이"];
+  for (const party of [1, 0]) {
     for (const member of members) {
-      if (member.job !== job || assigned.has(member.id)) continue;
-      // 예전에는 (샤이)(자이언트)를 이름 뒤에 붙였다. 이제 아이콘이 직업을
-      // 보여주므로 같은 말을 두 번 하지 않는다.
-      place(member, party);
-      party = (party + 1) % sizes.length;
+      if (!hasRoom(party)) break;
+      if (!assigned.has(member.id) && rangedJobs.includes(member.job)) place(member, party);
     }
   }
 
+  // 직업 분배에서 자리가 없던 인원을 일반 배치로 다른 부대에 넘기지 않는다.
   let party = 0;
   for (const member of members) {
-    if (assigned.has(member.id)) continue;
-    // 원본은 범위 검사보다 배열 접근이 먼저여서 정원 초과 시 예외가 발생한다.
+    if (assigned.has(member.id) || member.job === "샤이" || member.job === "자이언트") continue;
     while (party < sizes.length && filled(party) >= sizes[party]) party++;
     if (party < sizes.length) place(member, party);
+  }
+  // 아래쪽 직업을 표의 마지막 줄에 고정하면 정원이 작은 부대에 빈칸이 남는다.
+  // 두 열의 순서는 유지하면서 위로 붙여 자이·샤이·보영 앞의 빈칸을 없앤다.
+  for (let party = 0; party < parties.length; party++) {
+    const left = columnMembers(party, 0);
+    const right = columnMembers(party, 1);
+    parties[party] = Array.from({ length: Math.max(left.length, right.length) * 2 },
+      (_, index) => (index % 2 ? right : left)[Math.floor(index / 2)] ?? null);
   }
   return {
     parties,
     waiting: members.filter((member) => !assigned.has(member.id)),
-    rows: Math.max(rows, ...parties.map((p) => Math.ceil(p.length / 2))),
+    rows: Math.max(1, ...parties.map((p) => Math.ceil(p.length / 2))),
     names: defaultNames(sizes.length),
   };
 }
