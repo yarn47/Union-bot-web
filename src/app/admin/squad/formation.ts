@@ -268,7 +268,6 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     const key = name.toLowerCase();
     const member = members.find((m) => baseName(m.name).toLowerCase() === key && !assigned.has(m.id));
     if (!member) return false;
-    if (member.job === "샤이" || member.job === "자이언트") return false;
     place(member, party, suffix);
     return true;
   }
@@ -387,18 +386,39 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
     while (party < sizes.length && filled(party) >= sizes[party]) party++;
     if (party < sizes.length) place(member, party);
   }
-  // 아래쪽 직업을 표의 마지막 줄에 고정하면 정원이 작은 부대에 빈칸이 남는다.
-  // 두 열의 순서는 유지하면서 위로 붙여 자이·샤이·보영 앞의 빈칸을 없앤다.
+  /*
+   * 마지막으로 열마다 두 덩이로 정리한다. 위에는 일반 인원을 빈칸 없이 붙이고,
+   * 아래쪽 직업(위자치·샤이·자이언트)은 표의 마지막 줄에 맞춰 내린다.
+   *
+   * 둘을 한꺼번에 위로 붙이면 빈칸은 사라지지만 아래쪽 직업이 부대마다 다른
+   * 높이에 떠서, 가로로 훑어 찾을 수가 없어진다. 표의 줄 수는 모든 부대가
+   * 함께 쓰므로 여기서 내려 두면 어느 부대에서나 같은 줄에 온다 — 급할 때
+   * 눈이 가장 먼저 닿는 자리라 늘 같은 곳이어야 한다.
+   *
+   * 빈칸은 일반 인원과 아래쪽 직업 사이에만 남는다. 정원이 작은 부대에서만
+   * 생기고, 그 자리가 비어 있다는 것 자체가 읽을 거리다.
+   */
+  const pinnedIds = new Set([...wizardIds,
+    ...[...shais.flat(), ...giants.flat()].map((member) => member.id)]);
+  const tableRows = Math.max(1, ...parties.flatMap((_, party) =>
+    [0, 1].map((column) => columnMembers(party, column).length)));
   for (let party = 0; party < parties.length; party++) {
-    const left = columnMembers(party, 0);
-    const right = columnMembers(party, 1);
-    parties[party] = Array.from({ length: Math.max(left.length, right.length) * 2 },
-      (_, index) => (index % 2 ? right : left)[Math.floor(index / 2)] ?? null);
+    const next: (SquadMember | null)[] = Array.from({ length: tableRows * 2 }, () => null);
+    for (const column of [0, 1]) {
+      const cells = columnMembers(party, column);
+      const loose = cells.filter((member) => !pinnedIds.has(member.id));
+      const pinned = cells.filter((member) => pinnedIds.has(member.id));
+      loose.forEach((member, row) => { next[row * 2 + column] = member; });
+      pinned.forEach((member, row) => {
+        next[(tableRows - pinned.length + row) * 2 + column] = member;
+      });
+    }
+    parties[party] = next;
   }
   return {
     parties,
     waiting: members.filter((member) => !assigned.has(member.id)),
-    rows: Math.max(1, ...parties.map((p) => Math.ceil(p.length / 2))),
+    rows: tableRows,
     names: defaultNames(sizes.length),
   };
 }
