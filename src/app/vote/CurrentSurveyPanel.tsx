@@ -29,6 +29,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 /** 소리와 화면이 급해지기 시작하는 시점. 열리기 1 분 전부터다. */
 const URGENT_MS = 60_000;
+/*
+ * 열린 뒤 이만큼은 참여 버튼을 흩어 놓는다. 자리를 외워 두고 그 좌표를 찍는
+ * 마우스 매크로가 순번을 가져가지 못하게 하는 것이 목적이다. 몰리는 것은 열린
+ * 직후 잠깐이고, 그 뒤에는 자리를 흩어 둘 이유가 없다.
+ */
+const SCRAMBLE_MS = 5 * 60 * 1000;
+
 /** 소리를 켜 두었는지 기억하는 자리. 회차마다 다시 묻지 않는다. */
 const SOUND_KEY = "voteCountdownSound";
 /** 소리 크기를 기억하는 자리(%). */
@@ -113,6 +120,9 @@ export function CurrentSurveyPanel({
   const remaining = Math.max(0, opensAt - serverNow);
   const isOpen = serverNow >= opensAt && clockReady;
   const isClosed = serverNow >= closesAt;
+  /* 이 값은 서버 시각으로 재므로, 브라우저 시계를 돌려 놓아도 일찍 풀리지 않는다.
+     이미 끝난 뒤에 들어온 사람에게는 처음부터 제자리 버튼이 나온다. */
+  const scramble = serverNow < opensAt + SCRAMBLE_MS;
 
   /*
    * 열리기 1 분 전부터 나는 소리.
@@ -276,6 +286,7 @@ export function CurrentSurveyPanel({
           initialVotedAt={initialVotedAt}
           closed={isClosed}
           initialClassInfo={initialClassInfo}
+          scramble={scramble}
         />
       </>
     );
