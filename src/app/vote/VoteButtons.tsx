@@ -132,7 +132,7 @@ export function VoteButtons({
               { "--spot-x": spot.x, "--spot-y": spot.y } as CSSProperties)}
           </div>
           <p className={styles.scrambleHint}>
-            매크로를 막으려고 참여 버튼이 이 칸 안 아무 데나 놓입니다.
+            참여 버튼이 이 칸 중 랜덤으로 생성됩니다.
             투표가 열린 지 5분이 지나면 제자리로 돌아옵니다.
           </p>
           <div className={styles.buttonRowRest}>
