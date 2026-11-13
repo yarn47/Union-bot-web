@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import { autoAssign, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, mergeFormations, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
+import { autoAssign, bandsOf, baseName, editCell, emptyFormation, memberArt, memberLabel, memberRole, FORMATS, mergeFormations, moveMembers, parseMembers, renameParty, ROLES, setRole, SHEET, sheetRows, type CellAddress, type Formation, type FormatKey, type SquadMember } from "./formation";
 import { formationImage, roleLegendImage } from "./image";
 import { ROLE_ICON_PATH } from "./roleIcons";
 import { boardPulseAction, loadBoardAction, saveBoardAction, type Viewer } from "./boardActions";
@@ -138,7 +138,8 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
   const root = useRef<HTMLDivElement>(null);
   const sheetScroll = useRef<HTMLDivElement>(null);
   const rows = sheetRows(formation);
-  const columns = formation.parties.length * 2;
+  const bands = bandsOf(formation.parties.length);
+  const columns = bands[0].length * 2;
   const assignedCount = formation.parties.reduce((sum, party) => sum + party.filter(Boolean).length, 0);
 
   useEffect(() => { live.current = { formation, version, editing, dragging }; });
@@ -479,18 +480,23 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
       } as CSSProperties}>
         <colgroup>{Array.from({ length: columns }, (_, i) =>
           <col key={i} style={{ width: `${100 / columns}%` }} />)}</colgroup>
-        <thead><tr>{formation.names.map((name, party) =>
+        {bands.map((band, bandIndex) => <tbody key={bandIndex} className={styles.band}>
+        <tr>{band.map((party) =>
           <th key={party} scope="colgroup" colSpan={2}>
             {editing?.key === `head:${party}`
               ? <NameInput key={`head:${party}`} value={editing.value} onCommit={commit}
                 onCancel={() => setEditing(null)} />
               : <button type="button" className={styles.headerName} title="눌러서 이름 고치기"
-                onClick={() => setEditing({ key: `head:${party}`, value: name, headerParty: party })}>
-                {name}<br /><span>({formation.parties[party].filter(Boolean).length}명)</span>
+                onClick={() => setEditing({ key: `head:${party}`, value: formation.names[party], headerParty: party })}>
+                {formation.names[party]}<br /><span>({formation.parties[party].filter(Boolean).length}명)</span>
               </button>}
-          </th>)}</tr></thead>
-        <tbody>{Array.from({ length: rows + 1 }, (_, row) => <tr key={row} className={row === rows ? styles.extraRow : undefined}>
-          {formation.parties.flatMap((party, partyIndex) => [0, 1].map((column) => {
+          </th>)}
+          {/* 마지막 단이 덜 찼을 때 표 모양을 사각으로 지킨다. */}
+          {band.length < bands[0].length && <th colSpan={(bands[0].length - band.length) * 2} />}
+        </tr>
+        {Array.from({ length: rows + 1 }, (_, row) => <tr key={row} className={row === rows ? styles.extraRow : undefined}>
+          {band.flatMap((partyIndex) => [0, 1].map((column) => {
+            const party = formation.parties[partyIndex];
             const index = row * 2 + column;
             const member = party[index];
             const label = memberLabel(member);
@@ -548,7 +554,10 @@ export function SquadTab({ surveyId }: { surveyId: string | null }) {
                   )}</button>}
             </td>;
           }))}
-        </tr>)}</tbody>
+          {band.length < bands[0].length && Array.from(
+            { length: (bands[0].length - band.length) * 2 }, (_, pad) => <td key={`pad${pad}`} />)}
+        </tr>)}
+        </tbody>)}
       </table>
     </div>
     {viewers.length > 0 && (

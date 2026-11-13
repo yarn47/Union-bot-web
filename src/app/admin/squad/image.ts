@@ -1,4 +1,4 @@
-import { memberArt, memberLabel, memberRole, ROLES, SHEET, sheetRows, type Formation } from "./formation";
+import { bandsOf, memberArt, memberLabel, memberRole, ROLES, SHEET, sheetRows, type Formation } from "./formation";
 import { roleIconDataUrl } from "./roleIcons";
 
 /*
@@ -35,10 +35,22 @@ function toPng(canvas: HTMLCanvasElement): Promise<Blob> {
 export async function formationImage(formation: Formation): Promise<Blob> {
   await document.fonts.ready;
   const rows = sheetRows(formation);
-  // 부대 수는 인원이 정한다. 100 인이면 여섯 부대라 표가 그만큼 넓어진다.
+  // 부대 수는 인원이 정한다. 100 인이면 여섯 부대다.
   const count = formation.parties.length;
-  const width = SHEET.columnWidth * count * 2;
-  const height = SHEET.headerHeight + SHEET.rowHeight * rows;
+  /*
+   * 화면과 같이 두 단으로 접는다. 한 줄로 늘어놓던 때는 여섯 부대가 2136x332 —
+   * 디스코드가 550px 상자에 맞춰 줄이면 글자 줄 높이가 8px 이라 눌러 열지
+   * 않고는 읽을 수 없었다. 3x2 는 1068x664 로 같은 상자를 꽉 채운다.
+   */
+  const bands = bandsOf(count);
+  const bandHeight = SHEET.headerHeight + SHEET.rowHeight * rows;
+  const width = SHEET.columnWidth * bands[0].length * 2;
+  const height = bandHeight * bands.length;
+  /* 부대가 그려질 왼쪽 위. 단을 접었으므로 가로로도 세로로도 밀린다. */
+  const origin = new Map<number, { x: number; y: number }>();
+  bands.forEach((band, b) => band.forEach((party, slot) => {
+    origin.set(party, { x: slot * SHEET.columnWidth * 2, y: b * bandHeight });
+  }));
 
   // 그릴 그림을 미리 다 받아 둔다. 그리는 도중에는 기다릴 수 없다.
   const art = formation.parties.flat().map((member) => memberArt(member));
@@ -71,26 +83,29 @@ export async function formationImage(formation: Formation): Promise<Blob> {
 
   // 부대 머리글 — 위아래로 옅게 깎인 금속 판처럼.
   for (let party = 0; party < count; party++) {
-    const x = party * SHEET.columnWidth * 2;
-    const gradient = ctx.createLinearGradient(0, 0, 0, SHEET.headerHeight);
+    const { x, y } = origin.get(party) as { x: number; y: number };
+    const gradient = ctx.createLinearGradient(0, y, 0, y + SHEET.headerHeight);
     gradient.addColorStop(0, SHEET.headerTop);
     gradient.addColorStop(1, SHEET.headerBottom);
     ctx.fillStyle = gradient;
-    ctx.fillRect(x, 0, SHEET.columnWidth * 2, SHEET.headerHeight);
+    ctx.fillRect(x, y, SHEET.columnWidth * 2, SHEET.headerHeight);
     ctx.fillStyle = SHEET.headerText;
     ctx.textAlign = "center";
     ctx.font = `bold 14px ${SHEET.font}`;
-    ctx.fillText(formation.names[party] ?? "", x + SHEET.columnWidth, 17);
+    ctx.fillText(formation.names[party] ?? "", x + SHEET.columnWidth, y + 17);
     ctx.font = `12px ${SHEET.font}`;
     ctx.globalAlpha = 0.75;
-    ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, 32);
+    ctx.fillText(`(${formation.parties[party].filter(Boolean).length}명)`, x + SHEET.columnWidth, y + 32);
     ctx.globalAlpha = 1;
   }
 
   // 줄마다 옅은 명암. 눈이 가로줄을 따라가기 쉬워진다.
   ctx.fillStyle = SHEET.stripe;
-  for (let row = 1; row < rows; row += 2) {
-    ctx.fillRect(0, SHEET.headerHeight + row * SHEET.rowHeight, width, SHEET.rowHeight);
+  for (let band = 0; band < bands.length; band++) {
+    for (let row = 1; row < rows; row += 2) {
+      ctx.fillRect(0, band * bandHeight + SHEET.headerHeight + row * SHEET.rowHeight,
+        width, SHEET.rowHeight);
+    }
   }
 
   ctx.textAlign = "left";
@@ -102,8 +117,9 @@ export async function formationImage(formation: Formation): Promise<Blob> {
       for (let column = 0; column < 2; column++) {
         const member = formation.parties[party][row * 2 + column];
         if (!member) continue;
-        const left = (party * 2 + column) * SHEET.columnWidth;
-        const middle = SHEET.headerHeight + (row + 0.5) * SHEET.rowHeight;
+        const spot = origin.get(party) as { x: number; y: number };
+        const left = spot.x + column * SHEET.columnWidth;
+        const middle = spot.y + SHEET.headerHeight + (row + 0.5) * SHEET.rowHeight;
         const a = memberArt(member);
         let textLeft = left + 5;
 
@@ -148,7 +164,7 @@ export async function formationImage(formation: Formation): Promise<Blob> {
         if (textWidth > room) ctx.font = `${Math.max(8, SHEET.fontSize * room / textWidth)}px ${SHEET.font}`;
         ctx.save();
         ctx.beginPath();
-        ctx.rect(textLeft, SHEET.headerHeight + row * SHEET.rowHeight, room, SHEET.rowHeight);
+        ctx.rect(textLeft, spot.y + SHEET.headerHeight + row * SHEET.rowHeight, room, SHEET.rowHeight);
         ctx.clip();
         ctx.fillText(label, textLeft, middle);
         ctx.restore();
@@ -168,20 +184,30 @@ export async function formationImage(formation: Formation): Promise<Blob> {
   ctx.strokeStyle = SHEET.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let column = 1; column < count * 2; column++) {
-    const x = column * SHEET.columnWidth + 0.5;
-    ctx.moveTo(x, SHEET.headerHeight);
-    ctx.lineTo(x, height);
-  }
-  for (let row = 1; row <= rows; row++) {
-    const y = SHEET.headerHeight + row * SHEET.rowHeight + 0.5;
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
+  for (let band = 0; band < bands.length; band++) {
+    const top = band * bandHeight;
+    for (let column = 1; column < bands[band].length * 2; column++) {
+      const x = column * SHEET.columnWidth + 0.5;
+      ctx.moveTo(x, top + SHEET.headerHeight);
+      ctx.lineTo(x, top + bandHeight);
+    }
+    for (let row = 1; row <= rows; row++) {
+      const y = top + SHEET.headerHeight + row * SHEET.rowHeight + 0.5;
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
   }
   ctx.stroke();
 
   ctx.strokeStyle = SHEET.border;
   ctx.lineWidth = 2;
+  // 단과 단 사이. 윗단이 끝났다는 것이 보여야 아랫단을 다른 부대로 읽는다.
+  ctx.beginPath();
+  for (let band = 1; band < bands.length; band++) {
+    ctx.moveTo(0, band * bandHeight);
+    ctx.lineTo(width, band * bandHeight);
+  }
+  ctx.stroke();
   ctx.strokeRect(1, 1, width - 2, height - 2);
   ctx.beginPath();
   for (let column = 1; column < count; column++) {

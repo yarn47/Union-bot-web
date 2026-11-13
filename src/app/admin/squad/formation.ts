@@ -326,6 +326,32 @@ export function autoAssign(members: SquadMember[], format: FormatKey = "auto"): 
   };
 }
 
+/*
+ * 부대를 몇 단으로 나눠 놓을지 정한다. 단마다 그 단에 들어가는 부대 번호를
+ * 담아 돌려준다.
+ *
+ * 100인판(여섯 부대)만 접는다. 한 줄로 세우면 표가 1656px 라 어느 노트북에서도
+ * 가로 스크롤이고, 복사한 그림은 2136x332 였다. 디스코드가 550px 상자에 맞춰
+ * 줄이면 글자 줄 높이가 8px 이 되어, 눌러 열지 않고는 아무도 읽을 수 없었다.
+ * 3x2 로 접으면 1068x664 가 되어 같은 상자를 꽉 채우고 줄 높이가 두 배가 된다.
+ *
+ * 세로로 더 접으면(2x3) 이번에는 높이가 먼저 걸려 폭이 250px 로 줄어 오히려
+ * 나빠진다. 그래서 단은 둘까지만 둔다.
+ *
+ * 55·75인판(네 부대)은 한 줄로 둔다. 접으면 디스코드에서 글자가 커지기는
+ * 하지만, 네 부대가 마지막 줄을 함께 써서 위자치와 샤이가 가로로 한 줄에
+ * 맞는 것을 잃는다. 급할 때 눈이 가장 먼저 닿는 자리라 그 쪽을 지킨다.
+ * 접는 것은 한 줄로는 읽을 수조차 없는 100인판뿐이다.
+ */
+export function bandsOf(parties: number): number[][] {
+  const all = Array.from({ length: parties }, (_, index) => index);
+  if (parties <= 4) return [all];
+  const across = Math.ceil(parties / 2);
+  const bands: number[][] = [];
+  for (let at = 0; at < parties; at += across) bands.push(all.slice(at, at + across));
+  return bands;
+}
+
 export function sheetRows(formation: Formation) {
   return Math.max(formation.rows, ...formation.parties.map((party) =>
     Math.ceil((party.findLastIndex((member) => member !== null) + 1) / 2)));
