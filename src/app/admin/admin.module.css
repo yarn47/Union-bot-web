@@ -1353,6 +1353,31 @@ section.opStack + section {
 .specNoClass { flex: none; width: 24px; height: 24px; border-radius: 4px; border: 1px dashed var(--color-hairline); }
 .specNick { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .specGuild { flex-shrink: 0; font-size: 10px; font-weight: 400; color: var(--color-ink-faint); }
+/*
+ * 좁은 폭에서는 이름 칸이 줄어드는데 길드 이름과 탈퇴 꼬리표가 버티고 있어
+ * 닉네임만 홀로 깎인다. 잘라 내는 대신 줄을 바꾸게 둔다 — 이름도 길드도
+ * 끝까지 읽히고, 자리가 모자랄 때만 줄이 하나 늘어난다.
+ */
+@media (max-width: 900px), (min-width: 1025px) and (max-width: 1124px) {
+  .specName { flex-wrap: wrap; row-gap: 2px; }
+}
+
+/*
+ * 탈퇴한 사람. 확정 명단에서 빠진 사람(.cmpRemoved)과 같은 표시를 쓴다 —
+ * 이름과 순번에 줄을 긋고 흐리게 둔다. 두 화면이 같은 뜻에 다른 그림을 쓰면
+ * 매번 다시 읽어야 한다.
+ *
+ * 장비 수치에는 줄을 긋지 않는다. 그 사람이 낸 값은 그때 그대로 맞는 수이고,
+ * 견주어 볼 일이 있어 명단에 남겨 둔 것이다. 지금 인원이 아니라는 것만 알리면 된다.
+ */
+.specGone .specNick, .specGone .specRank { text-decoration: line-through; color: var(--color-ink-faint); }
+.specGone .specScore { color: var(--color-ink-faint); }
+/* 직업 얼굴만 그대로 선명하면 줄 그은 이름과 따로 떠 보인다. */
+.specGone .specName > :first-child { opacity: .5; }
+.specGoneTag {
+  flex-shrink: 0; padding: 1px 5px; border: 1px solid var(--color-hairline); border-radius: 3px;
+  font-size: 9px; font-weight: 600; letter-spacing: .02em; color: var(--color-ink-faint);
+}
 
 /* 직업 분포 — 정원 안에 무엇이 서 있는지 본다. */
 .lineGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 4px 0 12px; }

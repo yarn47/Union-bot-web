@@ -334,6 +334,13 @@ export interface SpecSubmissionListRow extends SpecBuildStats {
   userId: string;
   nickname: string;
   guildName: string;
+  /*
+   * 지금도 연맹원인지. 봇의 !탈퇴 를 거치면 user.status 가 내려간다. 다른
+   * 화면은 status = 1 로 걸러 버리는데, 여기서는 걸러 내지 않고 표시만 한다 —
+   * 낸 스펙은 그 사람이 있던 때의 기록이라 지워 버릴 것이 아니고, 명단을
+   * 읽는 사람은 그 줄을 지금 인원으로 세면 안 된다는 것만 알면 된다.
+   */
+  isMember: boolean;
   buildName: string;
   summaryText: string;
   submittedAt: Date;
@@ -368,7 +375,8 @@ export async function getLatestSpecSurvey(): Promise<SpecSurveyRow | null> {
  */
 export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissionListRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT s.user_id, u.user_nickname, g.name AS guild_name, s.build_name, s.gear, s.crystals, s.lightstones, " +
+    "SELECT s.user_id, u.user_nickname, u.status AS user_status, g.name AS guild_name, s.build_name, " +
+      "s.gear, s.crystals, s.lightstones, " +
       "s.ap, s.aap, s.dp, s.is_complete, c.name AS class_name, c.type AS class_type, s.summary_text, s.updated_at " +
       "FROM spec_submission s LEFT JOIN user u ON u.id = s.user_id " +
       "LEFT JOIN guild g ON g.id = u.guild_id " +
@@ -396,6 +404,8 @@ export async function getSpecSubmissions(surveyId: string): Promise<SpecSubmissi
       userId: String(row.user_id),
       nickname: row.user_nickname ?? "알 수 없음",
       guildName: row.guild_name ?? "소속 없음",
+      // 행이 아예 없으면(NULL) 그 사람도 지금 연맹원이 아니다.
+      isMember: row.user_status === 1,
       buildName: row.build_name,
       summaryText: row.summary_text,
       submittedAt: row.updated_at,

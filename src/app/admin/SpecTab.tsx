@@ -28,6 +28,17 @@ type SortKey = (typeof SORTS)[number]["key"];
 /** 공방합·주무기·각성무기·방어력 은 수치라 미확인 제출을 함께 줄 세울 수 없다. */
 const NUMERIC: SortKey[] = ["score", "ap", "aap", "dp"];
 
+/*
+ * 등수에 낄 수 없는 줄을 뒤로 민다. 탈퇴한 사람은 지금 인원이 아니라 등수를
+ * 밀어낼 자리가 아니고, 수치 미확인은 합계 자체를 믿을 수 없다. 둘 다면 탈퇴가
+ * 더 아래다 — 미확인은 언젠가 채워지지만 나간 사람은 그 명단으로 돌아오지 않는다.
+ */
+function byRankable(a: SpecSubmissionListRow, b: SpecSubmissionListRow): number {
+  if (a.isMember !== b.isMember) return a.isMember ? -1 : 1;
+  if (a.isComplete !== b.isComplete) return a.isComplete ? -1 : 1;
+  return 0;
+}
+
 function at(row: SpecSubmissionListRow, key: SortKey): number | string {
   if (key === "nickname") return row.nickname;
   if (key === "guildName") return row.guildName;
@@ -90,14 +101,27 @@ export function SpecTab() {
   const sorted = useMemo(() => {
     const list = picked.size ? rows.filter(row => picked.has(row.guildName)) : [...rows];
     list.sort((a, b) => {
-      if (NUMERIC.includes(sortKey) && a.isComplete !== b.isComplete) return a.isComplete ? -1 : 1;
+      /*
+       * 등수가 뜻을 갖는 것은 수치로 줄 세울 때다. 이름·시각으로 볼 때는 내리지
+       * 않는다 — 그때는 등수를 보는 것이 아니라 찾는 것이라, 찾는 사람이
+       * 제자리에 있어야 한다.
+       */
+      if (NUMERIC.includes(sortKey)) {
+        const rankable = byRankable(a, b);
+        if (rankable !== 0) return rankable;
+      }
       const left = at(a, sortKey), right = at(b, sortKey);
       const diff = typeof left === "string" && typeof right === "string"
         ? left.localeCompare(right as string, "ko")
         : (left as number) - (right as number);
       if (diff !== 0) return desc ? -diff : diff;
       // 같은 길드끼리는 공방합이 높은 쪽이 위다. 길드별로 묶어 보는 이유가 그것이다.
-      if (sortKey === "guildName" && a.score !== b.score) return b.score - a.score;
+      // 묶음 안쪽도 등수이므로 여기서도 같은 규칙이 선다.
+      if (sortKey === "guildName") {
+        const rankable = byRankable(a, b);
+        if (rankable !== 0) return rankable;
+        if (a.score !== b.score) return b.score - a.score;
+      }
       // 그 밖에는 값이 같으면 어느 방향으로 보든 먼저 낸 사람이 앞이다.
       return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
     });
@@ -107,7 +131,7 @@ export function SpecTab() {
   async function copyList() {
     const mixed = new Set(sorted.map(row => row.guildName)).size > 1;
     const text = sorted
-      .map((row, index) => `${index + 1}. ${row.nickname}${mixed ? `(${row.guildName})` : ""} · ${row.isComplete ? row.score : "?"} (주무기 ${row.ap} / 각성무기 ${row.aap} / 방어력 ${row.dp}) · ${row.buildName}`)
+      .map((row, index) => `${index + 1}. ${row.nickname}${row.isMember ? "" : "(탈퇴)"}${mixed ? `(${row.guildName})` : ""} · ${row.isComplete ? row.score : "?"} (주무기 ${row.ap} / 각성무기 ${row.aap} / 방어력 ${row.dp}) · ${row.buildName}`)
       .join("\n");
     try {
       await navigator.clipboard.writeText(text);
@@ -118,6 +142,7 @@ export function SpecTab() {
   }
 
   const unknown = sorted.filter((row) => !row.isComplete).length;
+  const gone = sorted.filter((row) => !row.isMember).length;
 
   return (
     <section className={styles.opStack}>
@@ -126,6 +151,8 @@ export function SpecTab() {
         기본은 공방합이 높은 순이고, 아래에서 길드를 거르거나 정렬 기준을 바꿀 수 있습니다.
         행을 누르면 그 사람이 낸 장비·수정·광명석을 볼 수 있습니다.
         낸 값은 제출한 순간에 굳으므로, 그 뒤에 세팅을 고쳐도 여기 보이는 것은 바뀌지 않습니다.
+        그 뒤에 탈퇴한 사람은 줄을 그어 두고, 수치로 줄 세울 때는 맨 아래로 내립니다 —
+        낸 기록은 남기되 지금 인원의 등수에는 넣지 않습니다.
       </p>
 
       <div className={styles.card}>
@@ -134,6 +161,7 @@ export function SpecTab() {
             {survey ? `${survey.title}${survey.open ? "" : " (마감)"} · 제출 ${rows.length}명` : "등록된 스펙조사가 없습니다"}
             {picked.size > 0 && ` · 표시 ${sorted.length}명`}
             {unknown > 0 && ` · 수치 미확인 ${unknown}명`}
+            {gone > 0 && ` · 탈퇴 ${gone}명`}
           </span>
           <span className={styles.spacer} />
           <button type="button" className={styles.btnSm} onClick={copyList} disabled={!rows.length}>
@@ -197,7 +225,11 @@ export function SpecTab() {
           {sorted.map((row, index) => {
             const open = openId === row.userId;
             return (
-              <li key={row.userId} className={open ? styles.specOpen : undefined}>
+              <li
+                key={row.userId}
+                className={[open ? styles.specOpen : "", row.isMember ? "" : styles.specGone]
+                  .filter(Boolean).join(" ") || undefined}
+              >
                 <button
                   type="button"
                   className={styles.specRow}
@@ -216,6 +248,10 @@ export function SpecTab() {
                       />
                     ) : <span className={styles.specNoClass} title="직업 정보 없음" aria-hidden="true" />}
                     <span className={styles.specNick}>{row.nickname}</span>
+                    {/* 줄만 그어 두면 왜 그었는지 알 수 없다. 까닭을 글자로 적는다. */}
+                    {!row.isMember && (
+                      <span className={styles.specGoneTag} title="지금은 연맹원이 아닙니다">탈퇴</span>
+                    )}
                     <span className={styles.specGuild}>{row.guildName}</span>
                   </span>
                   <span className={styles.specBuild}>{row.buildName}</span>
